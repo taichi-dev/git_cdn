@@ -1,0 +1,17 @@
+[flake8]
+ignore =
+    E203
+    E226,
+    E266,
+    E302,
+    E501,
+    W503,
+    F403,
+    F401,
+    E41,
+    E722.
+    C101
+max-line-length = 100
+exclude = env
+max-complexity = 8
+accept-encodings = utf-8

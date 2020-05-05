@@ -1,0 +1,124 @@
+stages:
+    - test
+    - integration-test
+    - publish
+default:
+    image: python:3.7
+    before_script:
+        - export PATH=$HOME/.local/bin:$PATH
+        - apt-get update && apt-get install -y git-lfs
+.only:
+    only: &only_changes
+        changes:
+            - "*.py"
+            - "git_cdn/**/*"
+            - "Pipfile*"
+            - "Makefile*"
+            - "*.yml"
+            - ".*"
+checks:3.7:
+    extends: .only
+    stage: test
+    variables:
+        WORKING_DIRECTORY: /tmp
+    script:
+        - make dev
+        - make check
+tests:
+    extends: .only
+    stage: test
+    variables:
+        WORKING_DIRECTORY: /tmp
+    script:
+        - git --version
+        - git lfs --version
+        - git lfs install
+        - make dev
+        - make test-v
+        - make dists
+
+coverage:
+    extends: .only
+    stage: test
+    variables:
+        WORKING_DIRECTORY: /tmp
+    script:
+        - git --version
+        - git lfs --version
+        - git lfs install
+        - make dev
+        - pipenv run pip install coveralls
+        - make test-coverage
+        # - pipenv run coveralls
+    artifacts:
+        paths:
+            - coverage_html/
+        reports:
+            junit: testresults.xml
+
+    coverage: '/^TOTAL.*\s+(\d+\%)$/'
+
+build:
+    extends: .only
+    image: docker:19.03.8
+    stage: test
+    services:
+        - docker:19.03.8-dind
+    script:
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        - docker build -t $CI_REGISTRY/$CI_PROJECT_PATH:i-$CI_COMMIT_SHA-$CI_PIPELINE_ID .
+        - docker push $CI_REGISTRY/$CI_PROJECT_PATH:i-$CI_COMMIT_SHA-$CI_PIPELINE_ID
+
+# test the docker image with the integration tests
+integration_tests:
+    extends: .only
+    stage: integration-test
+    needs: [build]
+    services:
+        - name: $CI_REGISTRY/$CI_PROJECT_PATH:i-$CI_COMMIT_SHA-$CI_PIPELINE_ID
+          alias: gitcdn
+    variables:
+        WORKING_DIRECTORY: /tmp
+        GITSERVER_UPSTREAM: $GITSERVER_UPSTREAM
+        UNDER_TEST_APP: http://gitcdn:8000
+        # fix me: send patch to gitlab-runner so that services can be linked together..
+        # right now, we can't test proxy support by runnering a simple squid proxy as a gitlabci service
+        # BUNDLE_PROXY: $BUNDLE_PROXY
+        # PROXY: $PROXY
+    script:
+        - make dev
+        - unset https_proxy
+        - until curl $UNDER_TEST_APP ; do sleep 1; done
+        - make integration-test
+
+pages:
+    extends: .only
+    stage: publish
+    only:
+        <<: *only_changes
+        refs:
+            - master
+    artifacts:
+        paths:
+            - public
+    image: python:3.7
+    script:
+        - mkdir -p public/coverage
+        - mv -v coverage_html/* public/coverage
+
+publish_docker:
+    extends: .only
+    image: docker:19.03.8
+    stage: publish
+    only:
+        <<: *only_changes
+        refs:
+            - master
+            - tags
+    services:
+        - docker:19.03.8-dind
+    script:
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        - docker pull $CI_REGISTRY/$CI_PROJECT_PATH:i-$CI_COMMIT_SHA-$CI_PIPELINE_ID
+        - docker tag $CI_REGISTRY/$CI_PROJECT_PATH:i-$CI_COMMIT_SHA-$CI_PIPELINE_ID $CI_REGISTRY/$CI_PROJECT_PATH:latest
+        - docker push $CI_REGISTRY/$CI_PROJECT_PATH:latest

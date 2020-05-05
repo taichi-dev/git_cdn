@@ -1,0 +1,22 @@
+[Unit]
+Description=GitCDN Service
+After=docker.service
+Requires=docker.service
+# restart git-cdn if docker is upgraded
+PartOf=docker.service
+
+[Service]
+Restart=Always
+ExecStartPre=-/usr/bin/docker kill gitcdn
+ExecStartPre=-/usr/bin/docker rm gitcdn
+ExecStop=/usr/bin/docker stop gitcdn
+ExecStart=/usr/bin/docker run --name gitcdn \
+                              --hostname gitcdn \
+                              -p 8000:8000 \
+                              -e GITSERVER_UPSTREAM=https://gitlab.example.com/ \
+                              -e WORKING_DIRECTORY=/git-data \
+                              -e MAX_CONNECTIONS=100 \
+                              -v /git-data:/git-data \
+                              registry.gitlab.com/grouperenault/git_cdn
+[Install]
+WantedBy=multi-user.target

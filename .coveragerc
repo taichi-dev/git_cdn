@@ -1,0 +1,8 @@
+[run]
+branch = True
+source = git_cdn
+
+[report]
+ignore_errors = True
+omit =
+    git_cdn/tests/*

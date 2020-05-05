@@ -1,0 +1,4 @@
+export CREDS="gitlab-ci-token:<xxx>"  # token with only read_repository grant is needed
+export GITSERVER_UPSTREAM=https://gitlab.com/
+export WORKING_DIRECTORY="~/gitCDN"
+export GITLAB_REPO_TEST_GROUP=grouperenault/repo_test
