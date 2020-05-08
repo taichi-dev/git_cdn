@@ -36,6 +36,13 @@ tests:
         - make dev
         - make test-v
         - make dists
+markdownlint:
+    stage: test
+    image: ruby
+    before_script:
+        - gem install gitlab-markup redcarpet
+    script:
+        - gitlab-markup README.md
 
 coverage:
     extends: .only
