@@ -239,14 +239,15 @@ Git-cdn takes a number of design decision in order to keep security and performa
 Git-cdn uses structured logging methodology to have context based structured logging.
 As git-cdn is massively parallel using asyncio, this is necessary in order to follow any problematic request.
 
-At the moment, only the main logic upload_pack.py is using contextual logging.
-
 In order to enable structure logging you need to configure a GELF server and GELF port as environment variables
 
     GELF_SERVER=graylog.example.com:12201
 
 Graylog is easy to setup logserver supporting gelf, and allowing to process and filter those logs.
 
+For json output in stdout, you can use following environment variable
+
+    OUTPUT_TYPE=json
 
 # Setup for development:
 
