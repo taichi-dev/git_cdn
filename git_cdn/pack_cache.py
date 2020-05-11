@@ -72,8 +72,18 @@ class PackCache:
         # We always send the pack from the cache, even on cache Miss
         log.info("Serving from pack cache", hash=self.hash, pack_hit=self.hit)
         with open(self.filename, "rb") as f:
+            count = 0
             while True:
                 data = f.read(CHUNK_SIZE)
+                count += len(data)
+                context.update(
+                    {
+                        "upload_pack_progress": {
+                            "date": datetime.now().isoformat(),
+                            "sent": count,
+                        }
+                    }
+                )
                 if not data:
                     break
                 await writer.write(data)
