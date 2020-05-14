@@ -51,6 +51,7 @@ log = get_logger()
 helpers.netrc_from_env = lambda: None
 GELF_INDEX = os.getenv("GELF_INDEX", "gitcdn_test")
 GITLFS_OBJECT_RE = re.compile(r"(?P<path>.*\.git)/gitlab-lfs/objects/[0-9a-f]{64}$")
+parallel_request = 0
 
 
 def fix_headers(headers):
@@ -307,7 +308,10 @@ class GitCDN:
         h = dict(request.headers)
         hide_auth_on_headers(h)
         log.info(
-            "handling response", request_path=request.path, request_headers_dict=h,
+            "handling response",
+            request_path=request.path,
+            request_headers_dict=h,
+            parallel_request=parallel_request,
         )
         if method == "post" and path.endswith("git-upload-pack"):
             if not git_path:
@@ -331,12 +335,16 @@ class GitCDN:
 
     async def routing_handler(self, request):
         start_time = time.time()
+        global parallel_request
         try:
+            parallel_request += 1
             return await self._routing_handler(request)
         except CancelledError:
             context.update({"canceled": True})
             log.debug("request canceled", resp_time=time.time() - start_time)
             raise
+        finally:
+            parallel_request -= 1
 
     async def proxify(self, request):
         """Gitcdn acts as a dumb proxy to simplfy git 'insteadof' configuration. """
