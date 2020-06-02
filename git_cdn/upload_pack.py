@@ -20,12 +20,10 @@ from git_cdn.upload_pack_input_parser import UploadPackInputParser
 from git_cdn.util import backoff
 from git_cdn.util import find_directory
 from git_cdn.util import get_bundle_paths
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
 
-# RSWL Dependencies
-from logging_configurer import context
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 GIT_PROCESS_WAIT_TIMEOUT = int(os.getenv("GIT_PROCESS_WAIT_TIMEOUT", "2"))
 cache_cleaner = PackCacheCleaner()
@@ -99,7 +97,7 @@ def input_to_ctx(dict_input):
         del dict_input["haves"]
     if "caps" in dict_input:
         del dict_input["caps"]
-    context.update({"input_details": dict_input})
+    bind_contextvars(input_details=dict_input)
 
 
 def generate_url(base, path, auth=None):
@@ -368,7 +366,7 @@ class UploadPackHandler:
             else:
                 await self.flush_to_writer(reader.read_chunk)
         except (CancelledError, ConnectionResetError):
-            context.update({"canceled": True})
+            bind_contextvars(canceled=True)
             log.warning("Client disconnected during upload-pack")
             raise
         except Exception:

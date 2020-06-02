@@ -13,11 +13,9 @@ from aiohttp.web_exceptions import HTTPFound
 from aiohttp.web_exceptions import HTTPNotFound
 from git_cdn.aiolock import lock
 from git_cdn.util import check_path
+from structlog import getLogger
 
-# RSWL Dependencies
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 
 class LFSCacheManager:

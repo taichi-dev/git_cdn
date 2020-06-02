@@ -17,11 +17,9 @@ from enum import Enum
 
 # Third Party Libraries
 from git_cdn.util import backoff
+from structlog import getLogger
 
-# RSWL Dependencies
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 
 def succeed(v):

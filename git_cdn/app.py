@@ -24,14 +24,14 @@ from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.clone_bundle_manager import CloneBundleManager
 from git_cdn.clone_bundle_manager import close_bundle_session
 from git_cdn.lfs_cache_manager import LFSCacheManager
+from git_cdn.log import enable_console_logs
+from git_cdn.log import enable_udp_logs
 from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.util import backoff
 from git_cdn.util import check_path
-
-# RSWL Dependencies
-from logging_configurer import LoggingConfigurer
-from logging_configurer import context
-from logging_configurer import get_logger
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
+from structlog.contextvars import clear_contextvars
 
 GITCDN_VERSION = None
 try:
@@ -47,9 +47,9 @@ if sentry_dsn:
         sentry_dsn, release=GITCDN_VERSION, environment=os.getenv("SENTRY_ENV", "dev")
     )
 
-log = get_logger()
+
+log = getLogger()
 helpers.netrc_from_env = lambda: None
-GELF_INDEX = os.getenv("GELF_INDEX", "gitcdn_test")
 GITLFS_OBJECT_RE = re.compile(r"(?P<path>.*\.git)/gitlab-lfs/objects/[0-9a-f]{64}$")
 parallel_request = 0
 
@@ -139,7 +139,7 @@ def extract_headers_to_context(h):
     ):
         if k in h:
             a["request_header"][k] = h[k]
-    context.update(a)
+    bind_contextvars(**a)
 
 
 def hide_auth_on_headers(h):
@@ -193,9 +193,13 @@ class GitCDN:
     MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "10"))
 
     def __init__(self, upstream, workdir, app, router):
-        logger_conf = LoggingConfigurer(env_prefix="")
-        logger_conf.apply()
-        logger_conf.set_uuid()
+        log_server = os.getenv("LOGGING_SERVER")
+        if log_server is not None:
+            host, port = log_server.split(":")
+            enable_udp_logs(host, int(port), GITCDN_VERSION)
+        else:
+            enable_console_logs()
+
         logging.getLogger("gunicorn.access").propagate = True
         app.gitcdn = self
         self.app = app
@@ -292,7 +296,8 @@ class GitCDN:
         path = request.path
         method = request.method.lower()
         git_path = find_gitpath(request.path)
-        context.update({"ctx": {"uuid": uuid.uuid4(), "path": str(git_path)}})
+        clear_contextvars()
+        bind_contextvars(ctx={"uuid": str(uuid.uuid4()), "path": str(git_path)})
 
         extract_headers_to_context(request.headers)
         # For the case of clone bundle, we don't enforce authentication, and browser redirection
@@ -340,7 +345,7 @@ class GitCDN:
             parallel_request += 1
             return await self._routing_handler(request)
         except CancelledError:
-            context.update({"canceled": True})
+            bind_contextvars(canceled=True)
             log.debug("request canceled", resp_time=time.time() - start_time)
             raise
         finally:
@@ -413,7 +418,7 @@ class GitCDN:
         (redis/sqlite?)
         """
         start_time = time.time()
-        context.update({"upload_pack_status": "direct", "canceled": False})
+        bind_contextvars(upload_pack_status="direct", canceled=False)
         response = None
         try:
             # proxy another info/refs request to the upstream server
@@ -459,10 +464,10 @@ class GitCDN:
             )
             await proc.run(content)
         except CancelledError:
-            context.update({"canceled": True})
+            bind_contextvars(canceled=True)
             raise
         except Exception:
-            context.update({"upload_pack_status": "exception"})
+            bind_contextvars(upload_pack_status="exception")
             log.exception("Exception during UploadPack handling")
             raise
         finally:

@@ -9,7 +9,7 @@ ADD         Pipfile* Makefile /app/
 # since the versionning is actually handled by the git submodule mechanism.
 ARG         PBR_VERSION=0.0.1
 # Only install dependencies
-RUN  apk --no-cache add make git && \
+RUN  apk --no-cache add make git libstdc++ && \
     apk add --update --no-cache --virtual .build-deps alpine-sdk musl-dev libffi-dev curl &&\
     pip install -U pip pipenv && \
     make install-local-only-deps && \

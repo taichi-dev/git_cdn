@@ -5,10 +5,10 @@ Add simple asyncio class over multiprocess Semaphore
 # Standard Library
 import asyncio
 
-# RSWL Dependencies
-from logging_configurer import get_logger
+# Third Party Libraries
+from structlog import getLogger
 
-log = get_logger()
+log = getLogger()
 
 
 class AioSemaphore:

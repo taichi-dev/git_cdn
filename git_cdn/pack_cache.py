@@ -8,12 +8,10 @@ from time import time
 from git_cdn.aiolock import lock
 from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.util import find_directory
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
 
-# RSWL Dependencies
-from logging_configurer import context
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 # chunk size when reading the cache file
 CHUNK_SIZE = 64 * 1024
@@ -59,15 +57,9 @@ class PackCache:
 
     async def send_pack(self, writer):
         status = "hit" if self.hit else "miss"
-        context.update(
-            {
-                "upload_pack_status": status,
-                "cache": {
-                    "size": self.size(),
-                    "filename": self.filename,
-                    "hit": self.hit,
-                },
-            }
+        bind_contextvars(
+            upload_pack_status=status,
+            cache={"size": self.size(), "filename": self.filename, "hit": self.hit},
         )
         # We always send the pack from the cache, even on cache Miss
         log.info("Serving from pack cache", hash=self.hash, pack_hit=self.hit)
@@ -76,12 +68,11 @@ class PackCache:
             while True:
                 data = f.read(CHUNK_SIZE)
                 count += len(data)
-                context.update(
-                    {
-                        "upload_pack_progress": {
-                            "date": datetime.now().isoformat(),
-                            "sent": count,
-                        }
+
+                bind_contextvars(
+                    upload_pack_progress={
+                        "date": datetime.now().isoformat(),
+                        "sent": count,
                     }
                 )
                 if not data:

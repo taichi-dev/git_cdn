@@ -1,10 +1,10 @@
-# RSWL Dependencies
 # Standard Library
 import asyncio
 
-from logging_configurer import get_logger
+# Third Party Libraries
+from structlog import getLogger
 
-log = get_logger()
+log = getLogger()
 
 
 def to_packet(data, channel=None):
