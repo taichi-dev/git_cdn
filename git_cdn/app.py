@@ -20,7 +20,6 @@ from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadRequest
 from aiohttp.web_exceptions import HTTPPermanentRedirect
 from aiohttp.web_exceptions import HTTPUnauthorized
-from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.clone_bundle_manager import CloneBundleManager
 from git_cdn.clone_bundle_manager import close_bundle_session
 from git_cdn.lfs_cache_manager import LFSCacheManager
@@ -453,14 +452,13 @@ class GitCDN:
             writer = await response.prepare(request)
 
             # run git-upload-pack
-            aio_semaphore = AioSemaphore(self.sema) if self.sema else None
             proc = UploadPackHandler(
                 path,
                 writer,
                 auth=creds,
                 workdir=self.workdir,
                 upstream=self.upstream,
-                sema=aio_semaphore,
+                sema=self.sema,
             )
             await proc.run(content)
         except CancelledError:

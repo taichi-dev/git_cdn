@@ -13,6 +13,7 @@ from aiohttp.abc import AbstractStreamWriter
 from aiohttp.web_exceptions import HTTPInternalServerError
 from aiohttp.web_exceptions import HTTPUnauthorized
 from git_cdn.aiolock import lock
+from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.pack_cache import PackCache
 from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.packet_line import to_packet
@@ -437,7 +438,7 @@ class UploadPackHandler:
             if self.rcache.exists():
                 if not self.sema:
                     return await self.doUploadPack(parsed_input, forward_error)
-                async with self.sema:
+                async with AioSemaphore(self.sema):
                     return await self.doUploadPack(parsed_input, forward_error)
         return True
 
