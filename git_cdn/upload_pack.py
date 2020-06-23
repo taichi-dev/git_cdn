@@ -247,22 +247,9 @@ class StdOutReader:
         self.stdout = stdout
         self.firstchunk = None
 
-    async def first_chunk(self, timeout=60):
-        for loop in range(10):
-            try:
-                self.firstchunk = await asyncio.wait_for(
-                    self.stdout.read(8), timeout=timeout
-                )
-                return self.firstchunk
-            except asyncio.TimeoutError:
-                log.exception(
-                    "Firstchunk timeout",
-                    loop=loop,
-                    buflen=len(self.stdout._buffer),
-                    tmpbuf=self.stdout._buffer[:8],
-                )
-        log.error("Timeout when reading first chunk")
-        raise TimeoutError
+    async def first_chunk(self):
+        self.firstchunk = await self.stdout.read(8)
+        return self.firstchunk
 
     async def next_chunk(self):
         return await self.stdout.read(self.CHUNK_SIZE)
