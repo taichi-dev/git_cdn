@@ -1,6 +1,7 @@
 # Standard Library
 import fcntl
 import os
+import uuid
 from datetime import datetime
 from time import time
 
@@ -154,6 +155,8 @@ class PackCacheCleaner:
         return len(to_delete)
 
     async def clean(self):
+        # cleanup is done in another task, so change the ctx uuid
+        bind_contextvars(ctx={"uuid": str(uuid.uuid4())})
         # only clean once per minute
         if (
             os.path.exists(self.lockfile)
