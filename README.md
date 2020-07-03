@@ -119,9 +119,8 @@ WORKING_DIRECTORY=          # directory where to put cache files
 # gunicorn config
 GUNICORN_WORKER=8           # number of asyncio loops managed by gunicorn
 
-# logging configuration  (you can also use all the https://gitlab.com/grouperenault/logging_configurer variables, with empty prefix)
-GELF_SERVER=                # log server to use for gelf logging
-GELF_INDEX=                 # index parameter to use for gelf logging
+# logging configuration
+LOGGING_SERVER=             # logging server (json over udp), works great with vector.dev. If not set, logging to console
 SENTRY_DSN=                 # sentry DSN to use for sending crash reports
 
 # pack cache configuration
@@ -239,15 +238,14 @@ Git-cdn takes a number of design decision in order to keep security and performa
 Git-cdn uses structured logging methodology to have context based structured logging.
 As git-cdn is massively parallel using asyncio, this is necessary in order to follow any problematic request.
 
-In order to enable structure logging you need to configure a GELF server and GELF port as environment variables
+At the moment, only the main logic upload_pack.py is using contextual logging.
 
-    GELF_SERVER=graylog.example.com:12201
+In order to enable structure logging you need to configure a server, listening for json over UDP.
 
-Graylog is easy to setup logserver supporting gelf, and allowing to process and filter those logs.
+    LOGGING_SERVER=vector.dev.example.com:12201
 
-For json output in stdout, you can use following environment variable
-
-    OUTPUT_TYPE=json
+[Vector](https://vector.dev) using udp source, and json transform is easy to setup. It will process and filter those logs, and
+support many "sinks" to store your logs.
 
 # Setup for development:
 
