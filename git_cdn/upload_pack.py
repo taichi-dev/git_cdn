@@ -36,8 +36,12 @@ parallel_upload_pack = 0
 def log_proc_if_error(proc, cmd):
     if not proc.returncode:
         return
-    cmd_stderr = repr(proc.stderr._buffer) if proc.stderr else ""
-    cmd_stdout = repr(proc.stdout._buffer) if proc.stdout else ""
+    cmd_stderr = proc.stderr._buffer.decode() if proc.stderr else ""
+    try:
+        # we might be in the middle of upload-pack so the stdout might be binary
+        cmd_stdout = proc.stdout._buffer.decode() if proc.stdout else ""
+    except UnicodeDecodeError:
+        cmd_stdout = "<binary>"
 
     # Error 128 on upload-pack is a known issue of git upload-pack and shall be ignored on
     # ctx['depth']==True and ctx['done']==False :
@@ -211,7 +215,7 @@ class RepoCache:
             log.warning("clone failed, trying again", timeout=timeout)
             await asyncio.sleep(timeout)
         if returncode != 0:
-            raise HTTPInternalServerError(reason=stderr)
+            raise HTTPInternalServerError(reason=stderr.decode())
 
     async def update(self):
         async with self.write_lock():
