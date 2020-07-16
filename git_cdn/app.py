@@ -464,6 +464,9 @@ class GitCDN:
         except CancelledError:
             bind_contextvars(canceled=True)
             raise
+        except HTTPUnauthorized as e:
+            log.warning("Unauthorized", unauthorized=e.reason)
+            raise
         except Exception:
             bind_contextvars(upload_pack_status="exception")
             log.exception("Exception during UploadPack handling")
