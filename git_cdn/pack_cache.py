@@ -78,7 +78,11 @@ class PackCache:
                 )
                 if not data:
                     break
-                await writer.write(data)
+                try:
+                    await writer.write(data)
+                except ConnectionResetError:
+                    log.warning("connection reset while serving pack cache")
+                    break
         # update mtime for LRU
         os.utime(self.filename, None)
 
