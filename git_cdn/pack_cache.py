@@ -11,6 +11,7 @@ from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.util import find_directory
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
+from structlog.contextvars import clear_contextvars
 
 log = getLogger()
 
@@ -40,7 +41,6 @@ class PackCache:
         return lock(self.filename, mode=fcntl.LOCK_EX)
 
     def delete(self):
-        log.info("deleting file", hash=self.hash)
         os.unlink(self.filename)
 
     def exists(self):
@@ -151,15 +151,16 @@ class PackCacheCleaner:
             rm_files=len(to_delete),
             cache_duration=cache_duration.total_seconds(),
         )
-
         for f in to_delete:
             cache = PackCache(f.name, workdir=self.workdir)
             async with cache.write_lock():
+                log.debug("delete", hash=f.name, rm_size=f.stat().st_size)
                 cache.delete()
         return len(to_delete)
 
     async def clean(self):
         # cleanup is done in another task, so change the ctx uuid
+        clear_contextvars()
         bind_contextvars(ctx={"uuid": str(uuid.uuid4())})
         # only clean once per minute
         if (
