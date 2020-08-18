@@ -8,6 +8,7 @@ from time import time
 
 # Third Party Libraries
 from structlog import getLogger
+from structlog.contextvars import bind_contextvars
 
 log = getLogger()
 
@@ -27,19 +28,23 @@ class AioSemaphore:
     async def acquire(self):
         # try non-blocking first
         if self.sema.acquire(False):
+            bind_contextvars(semaphore="non-blocking")
             return
         log.info("wait for semaphore")
         start_wait = time()
         p = asyncio.get_event_loop().run_in_executor(None, self._acquire)
         try:
             await p
-            log.info("Semaphore acquired", sema_wait=time() - start_wait)
+            bind_contextvars(semaphore="acquired")
         except asyncio.CancelledError:
+            bind_contextvars(semaphore="canceled")
             if self.acquired:
                 self.release()
             else:
                 self.cancel = True
             raise
+        finally:
+            bind_contextvars(sema_wait=time() - start_wait)
 
     def release(self):
         self.sema.release()
