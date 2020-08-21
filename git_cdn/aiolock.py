@@ -10,6 +10,7 @@ communicate between processes
 # Standard Library
 import asyncio
 import collections
+import concurrent
 import fcntl
 import os
 import time
@@ -95,6 +96,7 @@ class FLock:
         self.sh_waiters = collections.deque()
         self.state = S.IDLE
         self.loop = asyncio.get_event_loop()
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self.f = None
 
     def lock(self, mode):
@@ -131,7 +133,9 @@ class FLock:
                 self.state = S.ACQUIRING_EX
             else:
                 self.state = S.ACQUIRING_SH
-            asyncio.get_event_loop().run_in_executor(None, self._sync_flock, mode)
+            asyncio.get_event_loop().run_in_executor(
+                self.executor, self._sync_flock, mode
+            )
             return
 
     def _acquire_ex(self):

@@ -4,6 +4,7 @@ Add simple asyncio class over multiprocess Semaphore
 
 # Standard Library
 import asyncio
+import concurrent
 from time import time
 
 # Third Party Libraries
@@ -11,6 +12,7 @@ from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 
 log = getLogger()
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 class AioSemaphore:
@@ -32,7 +34,7 @@ class AioSemaphore:
             return
         log.info("wait for semaphore")
         start_wait = time()
-        p = asyncio.get_event_loop().run_in_executor(None, self._acquire)
+        p = asyncio.get_event_loop().run_in_executor(executor, self._acquire)
         try:
             await p
             bind_contextvars(semaphore="acquired")
