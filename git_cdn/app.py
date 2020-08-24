@@ -464,6 +464,9 @@ class GitCDN:
         except CancelledError:
             bind_contextvars(canceled=True)
             raise
+        except ConnectionResetError:
+            bind_contextvars(conn_reset=True)
+            raise
         except HTTPUnauthorized as e:
             log.warning("Unauthorized", unauthorized=e.reason)
             raise
