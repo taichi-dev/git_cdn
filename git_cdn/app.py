@@ -28,6 +28,7 @@ from git_cdn.log import enable_udp_logs
 from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.util import backoff
 from git_cdn.util import check_path
+from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 from structlog.contextvars import clear_contextvars
@@ -43,7 +44,10 @@ except ImportError:
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
     sentry_sdk.init(
-        sentry_dsn, release=GITCDN_VERSION, environment=os.getenv("SENTRY_ENV", "dev")
+        sentry_dsn,
+        release=GITCDN_VERSION,
+        environment=os.getenv("SENTRY_ENV", "dev"),
+        integrations=[AioHttpIntegration()],
     )
 
 
