@@ -168,7 +168,7 @@ class clientsession_retry_request:
                 self.cm_request = self.get_session().request(*self.args, **self.kwargs)
                 return await self.cm_request.__aenter__(*args, **kwargs)
             except aiohttp.ClientConnectionError:
-                log.debug(
+                log.exception(
                     "Client connection error",
                     resp_time=time.time() - start_time,
                     timeout=timeout,
