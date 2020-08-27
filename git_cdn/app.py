@@ -173,6 +173,7 @@ class clientsession_retry_request:
                     resp_time=time.time() - start_time,
                     timeout=timeout,
                     request_max_retries=self.REQUEST_MAX_RETRIES,
+                    retries=retries,
                     methods=self.args[0],
                     upstream_url=self.args[1],
                 )
