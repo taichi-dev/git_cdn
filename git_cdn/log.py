@@ -31,6 +31,16 @@ def extra_field(logger, method_name, event_dict):
     return newdict
 
 
+gunicorn_access = [
+    "first_request_line",
+    "remote_address",
+    "request_header",
+    "request_time_micro",
+    "response_size",
+    "response_status",
+]
+
+
 class UdpJsonHandler(DatagramHandler):
     @staticmethod
     def basedict(record):
@@ -48,10 +58,17 @@ class UdpJsonHandler(DatagramHandler):
         msg_dict = self.basedict(record)
         msg_dict = structlog.contextvars.merge_contextvars(None, None, msg_dict)
         msg_dict = structlog.threadlocal.merge_threadlocal(None, None, msg_dict)
+        msg_dict = structlog.processors.TimeStamper(fmt="iso")(None, None, msg_dict)
         if isinstance(record.msg, dict):
             msg_dict.update(record.msg)
         else:
             msg_dict["message"] = record.getMessage()
+            extra = {
+                k: getattr(record, k) for k in gunicorn_access if hasattr(record, k)
+            }
+            if extra:
+                msg_dict["extra"] = extra
+
         json_msg = (
             ujson.dumps(msg_dict, escape_forward_slashes=False, reject_bytes=False)
             + "\n"
@@ -81,7 +98,6 @@ def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
             extra_field,
-            structlog.processors.TimeStamper(fmt="iso"),
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         context_class=dict,
@@ -103,23 +119,31 @@ def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
 
 
 def enable_console_logs():
+    shared_processors = [
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.TimeStamper(fmt="%H:%M.%S"),
+    ]
+
     structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.TimeStamper(fmt="%H:%M.%S"),
+        processors=shared_processors
+        + [
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            structlog.dev.ConsoleRenderer(),
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processor=structlog.dev.ConsoleRenderer(), foreign_pre_chain=shared_processors,
+    )
+
     rlog = logging.getLogger()
     out_handler = logging.StreamHandler(sys.stdout)
+    out_handler.setFormatter(formatter)
     rlog.addHandler(out_handler)

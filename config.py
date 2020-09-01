@@ -13,7 +13,9 @@ worker_class = "aiohttp.worker.GunicornWebWorker"
 
 errorlog = "-"
 loglevel = "debug"
-accesslog = "-"
+
+# if None, there won't be any log to structlog, so push it to /dev/null instead
+accesslog = "/dev/null"
 access_log_format = '%a "%r" %s %b "%{User-Agent}i" "%{X-FORWARDED-FOR}i" "%{X-CI-JOB-URL}i" "%{X-CI-PROJECT-PATH}i" "%{X-REPO-JOB-URL}i" %D'
 
 
