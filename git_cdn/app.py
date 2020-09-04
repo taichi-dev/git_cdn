@@ -309,6 +309,7 @@ class GitCDN:
         extract_headers_to_context(request.headers)
         # For the case of clone bundle, we don't enforce authentication, and browser redirection
         if method == "get" and path.endswith("/clone.bundle"):
+            bind_contextvars(handler="clone-bundle")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
             cbm = CloneBundleManager(self.workdir, git_path)
@@ -326,16 +327,19 @@ class GitCDN:
             parallel_request=parallel_request,
         )
         if method == "post" and path.endswith("git-upload-pack"):
+            bind_contextvars(handler="upload-pack")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
             return await self.handle_upload_pack(request, git_path)
         if method in ("post", "put") and path.endswith("git-receive-pack"):
+            bind_contextvars(handler="redirect")
             return await self.proxify(request)
 
         # we skip the authentication step in order to avoid one round trip
         # arguing it is impossible to guess a valid 64 byte oid without having access
         # to the git repo already
         if method == "get" and GITLFS_OBJECT_RE.match(path):
+            bind_contextvars(handler="lfs")
             self.lfs_manager.set_base_url(str(request.url.origin()) + "/")
             h = request.headers.copy()
             del h["Host"]
@@ -343,6 +347,7 @@ class GitCDN:
             if os.path.exists(fn):
                 self.app.served_lfs_objects += 1
                 return web.Response(body=open(fn, "rb"))
+        bind_contextvars(handler="redirect")
         return await self.proxify(request)
 
     async def routing_handler(self, request):
