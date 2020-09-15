@@ -25,7 +25,7 @@ log = get_logger()
 # Upload pack Limit with Semaphores
 
 
-max_semaphore = os.getenv("MAX_GIT_UPLOAD_PACK", cpu_count())
+max_semaphore = int(os.getenv("MAX_GIT_UPLOAD_PACK", cpu_count()))
 upack_sema = BoundedSemaphore(max_semaphore)
 
 
