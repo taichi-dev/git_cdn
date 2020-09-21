@@ -6,11 +6,9 @@ import uuid
 # Third Party Libraries
 from git_cdn.packet_line import FLUSH_PKT
 from git_cdn.packet_line import PacketLineParser
+from structlog import getLogger
 
-# RSWL Dependencies
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 GIT_CAPS = {
     b"ofs-delta",

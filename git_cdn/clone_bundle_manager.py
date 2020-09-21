@@ -12,11 +12,9 @@ from aiohttp import TCPConnector
 from aiohttp import web
 from git_cdn.aiolock import lock
 from git_cdn.util import get_bundle_paths
+from structlog import getLogger
 
-# RSWL Dependencies
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 PROXY = os.getenv("BUNDLE_PROXY", None)
 MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "10"))

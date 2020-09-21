@@ -1,10 +1,13 @@
 # Standard Library
 import asyncio
 import textwrap
+from time import time
 
 # Third Party Libraries
-from git_cdn.upload_pack import TerminateState
+import git_cdn.upload_pack
 from git_cdn.upload_pack import ensure_proc_terminated
+
+git_cdn.upload_pack.KILLED_PROCESS_TIMEOUT = 0.1
 
 SHELLCODE1 = textwrap.dedent(
     """
@@ -33,21 +36,24 @@ async def test_basic(tmpdir, loop):
     proc = await asyncio.create_subprocess_exec(
         "bash", "-c", SHELLCODE1, stdin=asyncio.subprocess.PIPE
     )
-    ret = await ensure_proc_terminated(proc, "bash", 0.2)
-    assert ret == TerminateState.Wait
+    await ensure_proc_terminated(proc, "bash", 0.2)
 
 
 async def test_term(tmpdir, loop):
+    start_time = time()
     proc = await asyncio.create_subprocess_exec(
         "bash", "-c", SHELLCODE2, stdin=asyncio.subprocess.PIPE
     )
-    ret = await ensure_proc_terminated(proc, "bash", 0.2)
-    assert ret == TerminateState.Term
+    await ensure_proc_terminated(proc, "bash", 0.2)
+    elapsed = time() - start_time
+    assert elapsed < 2
 
 
 async def test_kill(tmpdir, loop):
+    start_time = time()
     proc = await asyncio.create_subprocess_exec(
         "bash", "-c", SHELLCODE3, stdin=asyncio.subprocess.PIPE
     )
-    ret = await ensure_proc_terminated(proc, "bash", 0.2)
-    assert ret == TerminateState.Kill
+    await ensure_proc_terminated(proc, "bash", 0.2)
+    elapsed = time() - start_time
+    assert elapsed < 2

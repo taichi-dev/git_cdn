@@ -1,9 +1,9 @@
 [dev-packages]
-"flake8" = ">=3.4"
+"flake8" = "==3.7.9"
 pyflakes = "*"
 pylint = ">=1.8"
 black = "==19.10b0"
-pytest = ">=2.9.2"
+pytest = "<6.0.0"
 pipenv-to-requirements = ">=0.1.9"
 "flake8-coding" = "*"
 "flake8-comprehensions" = "*"
@@ -21,8 +21,10 @@ pytest-benchmark = "*"
 [packages]
 pbr = "*"
 aiohttp = ">3.0.0"
-logging-configurer = {git = "https://gitlab.com/grouperenault/logging_configurer", ref = "master"}
+colorama = "*"
+structlog = "*"
 gunicorn = "*"
 yarl = "<=1.0.0"
 sentry-sdk = "*"
 psutil = "*"
+ujson = "*"

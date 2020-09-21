@@ -1,6 +1,7 @@
 # Standard Library
 import fcntl
 import os
+import uuid
 from datetime import datetime
 from time import time
 
@@ -8,12 +9,11 @@ from time import time
 from git_cdn.aiolock import lock
 from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.util import find_directory
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
+from structlog.contextvars import clear_contextvars
 
-# RSWL Dependencies
-from logging_configurer import context
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 # chunk size when reading the cache file
 CHUNK_SIZE = 64 * 1024
@@ -41,7 +41,6 @@ class PackCache:
         return lock(self.filename, mode=fcntl.LOCK_EX)
 
     def delete(self):
-        log.info("deleting file", hash=self.hash)
         os.unlink(self.filename)
 
     def exists(self):
@@ -59,24 +58,31 @@ class PackCache:
 
     async def send_pack(self, writer):
         status = "hit" if self.hit else "miss"
-        context.update(
-            {
-                "upload_pack_status": status,
-                "cache": {
-                    "size": self.size(),
-                    "filename": self.filename,
-                    "hit": self.hit,
-                },
-            }
+        bind_contextvars(
+            upload_pack_status=status,
+            cache={"size": self.size(), "filename": self.filename, "hit": self.hit},
         )
         # We always send the pack from the cache, even on cache Miss
         log.info("Serving from pack cache", hash=self.hash, pack_hit=self.hit)
         with open(self.filename, "rb") as f:
+            count = 0
             while True:
                 data = f.read(CHUNK_SIZE)
+                count += len(data)
+
+                bind_contextvars(
+                    upload_pack_progress={
+                        "date": datetime.now().isoformat(),
+                        "sent": count,
+                    }
+                )
                 if not data:
                     break
-                await writer.write(data)
+                try:
+                    await writer.write(data)
+                except ConnectionResetError:
+                    log.warning("connection reset while serving pack cache")
+                    break
         # update mtime for LRU
         os.utime(self.filename, None)
 
@@ -145,14 +151,17 @@ class PackCacheCleaner:
             rm_files=len(to_delete),
             cache_duration=cache_duration.total_seconds(),
         )
-
         for f in to_delete:
             cache = PackCache(f.name, workdir=self.workdir)
             async with cache.write_lock():
+                log.debug("delete", hash=f.name, rm_size=f.stat().st_size)
                 cache.delete()
         return len(to_delete)
 
     async def clean(self):
+        # cleanup is done in another task, so change the ctx uuid
+        clear_contextvars()
+        bind_contextvars(ctx={"uuid": str(uuid.uuid4())})
         # only clean once per minute
         if (
             os.path.exists(self.lockfile)

@@ -5,7 +5,6 @@ import os
 import time
 from asyncio.subprocess import Process
 from concurrent.futures import CancelledError
-from enum import Enum
 
 # Third Party Libraries
 import psutil
@@ -13,6 +12,7 @@ from aiohttp.abc import AbstractStreamWriter
 from aiohttp.web_exceptions import HTTPInternalServerError
 from aiohttp.web_exceptions import HTTPUnauthorized
 from git_cdn.aiolock import lock
+from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.pack_cache import PackCache
 from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.packet_line import to_packet
@@ -20,76 +20,68 @@ from git_cdn.upload_pack_input_parser import UploadPackInputParser
 from git_cdn.util import backoff
 from git_cdn.util import find_directory
 from git_cdn.util import get_bundle_paths
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
 
-# RSWL Dependencies
-from logging_configurer import context
-from logging_configurer import get_logger
-
-log = get_logger()
+log = getLogger()
 
 GIT_PROCESS_WAIT_TIMEOUT = int(os.getenv("GIT_PROCESS_WAIT_TIMEOUT", "2"))
+KILLED_PROCESS_TIMEOUT = 30
 cache_cleaner = PackCacheCleaner()
 BACKOFF_START = float(os.getenv("BACKOFF_START", "0.5"))
 BACKOFF_COUNT = int(os.getenv("BACKOFF_COUNT", "5"))
 parallel_upload_pack = 0
 
 
-class TerminateState(Enum):
-    Wait = 1
-    Term = 2
-    Kill = 3
+def log_proc_if_error(proc, cmd):
+    if not proc.returncode:
+        return
+    cmd_stderr = proc.stderr._buffer.decode() if proc.stderr else ""
+    try:
+        # we might be in the middle of upload-pack so the stdout might be binary
+        cmd_stdout = proc.stdout._buffer.decode() if proc.stdout else ""
+    except UnicodeDecodeError:
+        cmd_stdout = "<binary>"
 
-    def increment(self):
-        if self != TerminateState.Kill:
-            return TerminateState(self.value + 1)
-        return self
+    # Error 128 on upload-pack is a known issue of git upload-pack and shall be ignored on
+    # ctx['depth']==True and ctx['done']==False :
+    # https://www.mail-archive.com/git@vger.kernel.org/msg90066.html
+    log.info(
+        "subprocess return an error",
+        cmd=cmd,
+        cmd_stderr=cmd_stderr[:128],
+        cmd_stdout=cmd_stdout[:128],
+        returncode=proc.returncode,
+    )
 
 
-def log_not_wait(state, pid, cmd):
-    if state != TerminateState.Wait:
-        log.info("command not yet terminated", state=state.name, pid=pid, cmd=cmd)
-
-
-def log_proc_termination(proc, cmd):
-    if proc.returncode:
-        cmd_stdout = ""
-        cmd_stderr = ""
-        if proc.stderr:
-            cmd_stderr = repr(proc.stderr._buffer)
-        if proc.stdout:
-            cmd_stdout = repr(proc.stdout._buffer)
-
-        # Error 128 on upload-pack is a known issue of git upload-pack and shall be ignored on
-        # ctx['depth']==True and ctx['done']==False :
-        # https://www.mail-archive.com/git@vger.kernel.org/msg90066.html
-        log.info(
-            "cmd afterall return state",
-            cmd=cmd,
-            cmd_stderr=cmd_stderr[:128],
-            cmd_stdout=cmd_stdout[:128],
-            returncode=proc.returncode,
-        )
+async def wait_proc(proc, cmd, timeout):
+    try:
+        await asyncio.wait_for(proc.wait(), timeout=timeout)
+        log_proc_if_error(proc, cmd)
+        return True
+    except asyncio.TimeoutError:
+        pass
+    return False
 
 
 async def ensure_proc_terminated(
     proc: Process, cmd: str, timeout=GIT_PROCESS_WAIT_TIMEOUT
 ):
-    state = TerminateState.Wait
-    while proc.returncode is None:
-        log_not_wait(state=state, pid=proc.pid, cmd=cmd)
-        try:
-            if state == TerminateState.Term:
-                proc.terminate()
-            if state == TerminateState.Kill:
-                proc.kill()
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=timeout)
-            except asyncio.TimeoutError:
-                state = TerminateState.increment(state)
-        except ProcessLookupError:
-            pass
-    log_proc_termination(proc, cmd)
-    return state
+    if proc.returncode is not None:
+        log_proc_if_error(proc, cmd)
+        return
+    if await wait_proc(proc, cmd, timeout):
+        return
+    log.error("process didn't exit, terminate it", cmd=cmd, timeout=timeout)
+    proc.terminate()
+    if await wait_proc(proc, cmd, KILLED_PROCESS_TIMEOUT):
+        return
+    log.error("process didn't exit, kill it", cmd=cmd, timeout=timeout)
+    proc.kill()
+    if await wait_proc(proc, cmd, KILLED_PROCESS_TIMEOUT):
+        return
+    log.error("Process didn't exit after kill", cmd=cmd, timeout=timeout)
 
 
 def input_to_ctx(dict_input):
@@ -99,7 +91,7 @@ def input_to_ctx(dict_input):
         del dict_input["haves"]
     if "caps" in dict_input:
         del dict_input["caps"]
-    context.update({"input_details": dict_input})
+    bind_contextvars(input_details=dict_input)
 
 
 def generate_url(base, path, auth=None):
@@ -223,7 +215,7 @@ class RepoCache:
             log.warning("clone failed, trying again", timeout=timeout)
             await asyncio.sleep(timeout)
         if returncode != 0:
-            raise HTTPInternalServerError(reason=stderr)
+            raise HTTPInternalServerError(reason=stderr.decode())
 
     async def update(self):
         async with self.write_lock():
@@ -248,22 +240,9 @@ class StdOutReader:
         self.stdout = stdout
         self.firstchunk = None
 
-    async def first_chunk(self, timeout=60):
-        for loop in range(10):
-            try:
-                self.firstchunk = await asyncio.wait_for(
-                    self.stdout.read(8), timeout=timeout
-                )
-                return self.firstchunk
-            except asyncio.TimeoutError:
-                log.exception(
-                    "Firstchunk timeout",
-                    loop=loop,
-                    buflen=len(self.stdout._buffer),
-                    tmpbuf=self.stdout._buffer[:8],
-                )
-        log.error("Timeout when reading first chunk")
-        raise TimeoutError
+    async def first_chunk(self):
+        self.firstchunk = await self.stdout.read(8)
+        return self.firstchunk
 
     async def next_chunk(self):
         return await self.stdout.read(self.CHUNK_SIZE)
@@ -308,6 +287,7 @@ class UploadPackHandler:
         self.rcache = None
         self.pcache = None
         self.not_our_ref = False
+        self.forward_error = False
 
     @staticmethod
     async def write_input(proc, input):
@@ -323,7 +303,24 @@ class UploadPackHandler:
         finally:
             proc.stdin.close()
 
-    async def doUploadPack(self, input, forward_error=False):
+    async def check_firstchunk(self, reader, input, start_time):
+        firstchunk = await reader.first_chunk()
+        error = firstchunk[4:7] == b"ERR"
+        log.info(
+            "firstchunk from local upload-pack",
+            firstchunk=firstchunk,
+            uperror=error,
+            input=input.input.decode()[:128],
+            cmd_duration=time.time() - start_time,
+        )
+        if error:
+            if self.forward_error:
+                await self.flush_to_writer(reader.read_chunk)
+            elif b"not our ref" in await reader.next_chunk():
+                self.not_our_ref = True
+        return error
+
+    async def doUploadPack(self, input):
         global parallel_upload_pack
         t1 = time.time()
         self.not_our_ref = False
@@ -346,35 +343,24 @@ class UploadPackHandler:
         try:
             await self.write_input(proc, input.input)
             reader = StdOutReader(proc.stdout)
-
-            firstchunk = await reader.first_chunk()
-            error = firstchunk[4:7] == b"ERR"
-            log.info(
-                "firstchunk from local upload-pack",
-                firstchunk=firstchunk,
-                uperror=error,
-                input=input.input.decode()[:128],
-                cmd_duration=time.time() - t1,
-            )
-
-            if error:
-                if forward_error:
-                    await self.flush_to_writer(reader.read_chunk)
-                elif b"not our ref" in await reader.next_chunk():
-                    self.not_our_ref = True
-                return error
+            if await self.check_firstchunk(reader, input, t1):
+                return True
             if self.pcache:
                 await asyncio.shield(self.pcache.cache_pack(reader.read))
             else:
                 await self.flush_to_writer(reader.read_chunk)
         except (CancelledError, ConnectionResetError):
-            context.update({"canceled": True})
+            bind_contextvars(canceled=True)
             log.warning("Client disconnected during upload-pack")
+            if not self.pcache and proc.returncode is None:
+                proc.terminate()
+                log.info("Terminate upload-pack because client is disconnected")
             raise
         except Exception:
             log.exception("upload pack failure")
         finally:
-            await ensure_proc_terminated(proc, "git upload-pack")
+            # Wait 10 min, for the shielded upload pack to terminate
+            await ensure_proc_terminated(proc, "git upload-pack", 10 * 60)
             parallel_upload_pack -= 1
             log.info(
                 "Upload pack done",
@@ -433,14 +419,14 @@ class UploadPackHandler:
         else:
             await self.execute(parsed_input)
 
-    async def uploadPack(self, parsed_input, forward_error=False):
+    async def uploadPack(self, parsed_input):
         async with self.rcache.read_lock():
             self.rcache.save_mtime()
             if self.rcache.exists():
                 if not self.sema:
-                    return await self.doUploadPack(parsed_input, forward_error)
-                async with self.sema:
-                    return await self.doUploadPack(parsed_input, forward_error)
+                    return await self.doUploadPack(parsed_input)
+                async with AioSemaphore(self.sema):
+                    return await self.doUploadPack(parsed_input)
         return True
 
     async def execute(self, parsed_input):
@@ -468,4 +454,6 @@ class UploadPackHandler:
             log.warning("Last Try, remove repo, and clone", loop=2, repo_path=self.path)
             await self.rcache.force_update()
 
-        await self.uploadPack(parsed_input, forward_error=True)
+        # Last try, forward all errors to the client
+        self.forward_error = True
+        await self.uploadPack(parsed_input)

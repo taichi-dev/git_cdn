@@ -20,18 +20,18 @@ from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadRequest
 from aiohttp.web_exceptions import HTTPPermanentRedirect
 from aiohttp.web_exceptions import HTTPUnauthorized
-from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.clone_bundle_manager import CloneBundleManager
 from git_cdn.clone_bundle_manager import close_bundle_session
 from git_cdn.lfs_cache_manager import LFSCacheManager
+from git_cdn.log import enable_console_logs
+from git_cdn.log import enable_udp_logs
 from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.util import backoff
 from git_cdn.util import check_path
-
-# RSWL Dependencies
-from logging_configurer import LoggingConfigurer
-from logging_configurer import context
-from logging_configurer import get_logger
+from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
+from structlog.contextvars import clear_contextvars
 
 GITCDN_VERSION = None
 try:
@@ -44,13 +44,17 @@ except ImportError:
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
     sentry_sdk.init(
-        sentry_dsn, release=GITCDN_VERSION, environment=os.getenv("SENTRY_ENV", "dev")
+        sentry_dsn,
+        release=GITCDN_VERSION,
+        environment=os.getenv("SENTRY_ENV", "dev"),
+        integrations=[AioHttpIntegration()],
     )
 
-log = get_logger()
+
+log = getLogger()
 helpers.netrc_from_env = lambda: None
-GELF_INDEX = os.getenv("GELF_INDEX", "gitcdn_test")
 GITLFS_OBJECT_RE = re.compile(r"(?P<path>.*\.git)/gitlab-lfs/objects/[0-9a-f]{64}$")
+parallel_request = 0
 
 
 def fix_headers(headers):
@@ -138,7 +142,7 @@ def extract_headers_to_context(h):
     ):
         if k in h:
             a["request_header"][k] = h[k]
-    context.update(a)
+    bind_contextvars(**a)
 
 
 def hide_auth_on_headers(h):
@@ -164,11 +168,12 @@ class clientsession_retry_request:
                 self.cm_request = self.get_session().request(*self.args, **self.kwargs)
                 return await self.cm_request.__aenter__(*args, **kwargs)
             except aiohttp.ClientConnectionError:
-                log.debug(
+                log.exception(
                     "Client connection error",
                     resp_time=time.time() - start_time,
                     timeout=timeout,
                     request_max_retries=self.REQUEST_MAX_RETRIES,
+                    retries=retries,
                     methods=self.args[0],
                     upstream_url=self.args[1],
                 )
@@ -192,9 +197,13 @@ class GitCDN:
     MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "10"))
 
     def __init__(self, upstream, workdir, app, router):
-        logger_conf = LoggingConfigurer(env_prefix="")
-        logger_conf.apply()
-        logger_conf.set_uuid()
+        log_server = os.getenv("LOGGING_SERVER")
+        if log_server is not None:
+            host, port = log_server.split(":")
+            enable_udp_logs(host, int(port), GITCDN_VERSION)
+        else:
+            enable_console_logs()
+
         logging.getLogger("gunicorn.access").propagate = True
         app.gitcdn = self
         self.app = app
@@ -233,7 +242,10 @@ class GitCDN:
                 limit=self.MAX_CONNECTIONS,
                 verify_ssl=os.getenv("GIT_SSL_NO_VERIFY") is None,
             )
-            timeout = aiohttp.ClientTimeout(total=0)
+            # session can be indefinitively long, but we need at least some activity every minute
+            timeout = aiohttp.ClientTimeout(
+                total=0, connect=60, sock_connect=60, sock_read=60
+            )
             self.proxysession = ClientSession(
                 # supports deflate brotli and gzip
                 connector=conn,
@@ -291,11 +303,13 @@ class GitCDN:
         path = request.path
         method = request.method.lower()
         git_path = find_gitpath(request.path)
-        context.update({"ctx": {"uuid": uuid.uuid4(), "path": str(git_path)}})
+        clear_contextvars()
+        bind_contextvars(ctx={"uuid": str(uuid.uuid4()), "path": str(git_path)})
 
         extract_headers_to_context(request.headers)
         # For the case of clone bundle, we don't enforce authentication, and browser redirection
         if method == "get" and path.endswith("/clone.bundle"):
+            bind_contextvars(handler="clone-bundle")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
             cbm = CloneBundleManager(self.workdir, git_path)
@@ -307,19 +321,25 @@ class GitCDN:
         h = dict(request.headers)
         hide_auth_on_headers(h)
         log.info(
-            "handling response", request_path=request.path, request_headers_dict=h,
+            "handling response",
+            request_path=request.path,
+            request_headers_dict=h,
+            parallel_request=parallel_request,
         )
         if method == "post" and path.endswith("git-upload-pack"):
+            bind_contextvars(handler="upload-pack")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
             return await self.handle_upload_pack(request, git_path)
         if method in ("post", "put") and path.endswith("git-receive-pack"):
+            bind_contextvars(handler="redirect")
             return await self.proxify(request)
 
         # we skip the authentication step in order to avoid one round trip
         # arguing it is impossible to guess a valid 64 byte oid without having access
         # to the git repo already
         if method == "get" and GITLFS_OBJECT_RE.match(path):
+            bind_contextvars(handler="lfs")
             self.lfs_manager.set_base_url(str(request.url.origin()) + "/")
             h = request.headers.copy()
             del h["Host"]
@@ -327,16 +347,21 @@ class GitCDN:
             if os.path.exists(fn):
                 self.app.served_lfs_objects += 1
                 return web.Response(body=open(fn, "rb"))
+        bind_contextvars(handler="redirect")
         return await self.proxify(request)
 
     async def routing_handler(self, request):
         start_time = time.time()
+        global parallel_request
         try:
+            parallel_request += 1
             return await self._routing_handler(request)
         except CancelledError:
-            context.update({"canceled": True})
+            bind_contextvars(canceled=True)
             log.debug("request canceled", resp_time=time.time() - start_time)
             raise
+        finally:
+            parallel_request -= 1
 
     async def proxify(self, request):
         """Gitcdn acts as a dumb proxy to simplfy git 'insteadof' configuration. """
@@ -405,7 +430,7 @@ class GitCDN:
         (redis/sqlite?)
         """
         start_time = time.time()
-        context.update({"upload_pack_status": "direct", "canceled": False})
+        bind_contextvars(upload_pack_status="direct", canceled=False)
         response = None
         try:
             # proxy another info/refs request to the upstream server
@@ -440,21 +465,26 @@ class GitCDN:
             writer = await response.prepare(request)
 
             # run git-upload-pack
-            aio_semaphore = AioSemaphore(self.sema) if self.sema else None
             proc = UploadPackHandler(
                 path,
                 writer,
                 auth=creds,
                 workdir=self.workdir,
                 upstream=self.upstream,
-                sema=aio_semaphore,
+                sema=self.sema,
             )
             await proc.run(content)
         except CancelledError:
-            context.update({"canceled": True})
+            bind_contextvars(canceled=True)
+            raise
+        except ConnectionResetError:
+            bind_contextvars(conn_reset=True)
+            raise
+        except HTTPUnauthorized as e:
+            log.warning("Unauthorized", unauthorized=e.reason)
             raise
         except Exception:
-            context.update({"upload_pack_status": "exception"})
+            bind_contextvars(upload_pack_status="exception")
             log.exception("Exception during UploadPack handling")
             raise
         finally:
@@ -467,8 +497,21 @@ class GitCDN:
                 response_size=output_size,
                 response_status=getattr(response, "status", 500),
                 resp_time=time.time() - start_time,
+                **self.get_sema_stats()
             )
         return response
+
+    def get_sema_stats(self):
+        if self.sema is not None:
+            try:
+                sema_count = self.sema.get_value()
+            except NotImplementedError:
+                sema_count = 0
+            return {
+                "sema_count": sema_count,
+                "sema_name": self.sema._semlock.name,
+            }
+        return {}
 
 
 def make_app(upstream, directory):

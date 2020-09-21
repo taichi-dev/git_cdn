@@ -1,5 +1,4 @@
 # Standard Library
-import asyncio
 import os
 
 # Third Party Libraries
@@ -7,7 +6,6 @@ import pytest
 from aiohttp.abc import AbstractStreamWriter
 from git_cdn.tests.conftest import GITLAB_REPO_TEST_GROUP
 from git_cdn.upload_pack import RepoCache
-from git_cdn.upload_pack import StdOutReader
 from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.upload_pack import generate_url
 from git_cdn.upload_pack_input_parser import UploadPackInputParser
@@ -274,24 +272,3 @@ async def test_flush_input(tmpdir, loop):
 
     await proc.run(b"0000")
     assert not writer.output
-
-
-class FakeReader:
-    def __init__(self, sleeptime):
-        self.sleeptime = sleeptime
-        self._buffer = []
-
-    async def read(self, _):
-        await asyncio.sleep(self.sleeptime)
-        return b"data"
-
-
-async def test_firstchunk():
-
-    reader = StdOutReader(FakeReader(0.1))
-    fc = await reader.first_chunk(0.2)
-    assert fc == b"data"
-
-    reader = StdOutReader(FakeReader(2))
-    with pytest.raises(TimeoutError):
-        fc = await reader.first_chunk(0.1)

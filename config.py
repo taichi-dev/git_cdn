@@ -1,11 +1,9 @@
 # Configuration
 # Standard Library
+import logging
 import os
 from multiprocessing import BoundedSemaphore
 from multiprocessing import cpu_count
-
-# RSWL Dependencies
-from logging_configurer import get_logger
 
 workers = int(os.getenv("NUM_WORKER", "8"))
 timeout = 30
@@ -15,17 +13,16 @@ worker_class = "aiohttp.worker.GunicornWebWorker"
 
 errorlog = "-"
 loglevel = "debug"
-accesslog = "-"
+
+# if None, there won't be any log to structlog, so push it to /dev/null instead
+accesslog = "/dev/null"
 access_log_format = '%a "%r" %s %b "%{User-Agent}i" "%{X-FORWARDED-FOR}i" "%{X-CI-JOB-URL}i" "%{X-CI-PROJECT-PATH}i" "%{X-REPO-JOB-URL}i" %D'
 
 
-
-log = get_logger()
-
+log = logging.getLogger()
+log.setLevel(logging.DEBUG)
 # Upload pack Limit with Semaphores
-
-
-max_semaphore = os.getenv("MAX_GIT_UPLOAD_PACK", cpu_count())
+max_semaphore = int(os.getenv("MAX_GIT_UPLOAD_PACK", cpu_count()))
 upack_sema = BoundedSemaphore(max_semaphore)
 
 
