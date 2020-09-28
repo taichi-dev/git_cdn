@@ -321,7 +321,7 @@ class GitCDN:
         check_auth(request)
         h = dict(request.headers)
         hide_auth_on_headers(h)
-        log.info(
+        log.debug(
             "handling response",
             request_path=request.path,
             request_headers_dict=h,
@@ -359,7 +359,7 @@ class GitCDN:
             return await self._routing_handler(request)
         except CancelledError:
             bind_contextvars(canceled=True)
-            log.debug("request canceled", resp_time=time.time() - start_time)
+            log.warning("request canceled", resp_time=time.time() - start_time)
             raise
         finally:
             parallel_request -= 1
@@ -387,7 +387,7 @@ class GitCDN:
                 resp_error = "n/a"
                 if response.status >= 400:
                     resp_error = (await response.content.read()).decode()
-                log.info(
+                log.debug(
                     "upstream returned",
                     upstream_url=upstream_url,
                     resp_error=resp_error,
@@ -493,7 +493,7 @@ class GitCDN:
                 output_size = getattr(response._payload_writer, "output_size", 0)
             else:
                 output_size = 0
-            log.debug(
+            log.info(
                 "Response stats",
                 response_size=output_size,
                 response_status=getattr(response, "status", 500),

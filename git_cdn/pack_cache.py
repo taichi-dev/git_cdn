@@ -64,7 +64,7 @@ class PackCache:
             cache={"size": self.size(), "filename": self.filename, "hit": self.hit},
         )
         # We always send the pack from the cache, even on cache Miss
-        log.info("Serving from pack cache", hash=self.hash, pack_hit=self.hit)
+        log.debug("Serving from pack cache", hash=self.hash, pack_hit=self.hit)
         with open(self.filename, "rb") as f:
             count = 0
             while True:
@@ -88,7 +88,7 @@ class PackCache:
         os.utime(self.filename, None)
 
     async def cache_pack(self, read_func):
-        log.info("Cache Miss, create new cache entry", hash=self.hash)
+        log.debug("Cache Miss, create new cache entry", hash=self.hash)
         self.hit = False
         pkt_parser = PacketLineChunkParser(read_func)
         with open(self.filename, "wb") as f:
@@ -122,7 +122,7 @@ class PackCacheCleaner:
         subdirs = [os.path.join(self.cachedir, sub) for sub in subdirs]
         all_files = [f for sub in subdirs for f in os.scandir(sub) if f.is_file()]
         total_size = sum(f.stat().st_size for f in all_files)
-        log.info(
+        log.debug(
             "Pack Cache size is",
             size=total_size,
             max_size=self.max_size,
