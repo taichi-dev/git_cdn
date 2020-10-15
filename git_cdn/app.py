@@ -178,7 +178,7 @@ class clientsession_retry_request:
                     methods=self.args[0],
                     upstream_url=self.args[1],
                 )
-                if retries >= self.REQUEST_MAX_RETRIES:
+                if retries + 1 >= self.REQUEST_MAX_RETRIES:
                     log.exception(
                         "Max of request retries reached",
                         resp_time=time.time() - start_time,
