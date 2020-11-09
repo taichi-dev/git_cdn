@@ -153,14 +153,14 @@ def hide_auth_on_headers(h):
         )
 
 
-class clientsession_retry_request:
+class ClientSessionWithRetry:
     REQUEST_MAX_RETRIES = int(os.getenv("REQUEST_MAX_RETRIES", "10"))
-    cm_request = None
 
     def __init__(self, get_session, *args, **kwargs):
         self.get_session = get_session
         self.args = args
         self.kwargs = kwargs
+        self.cm_request = None
 
     async def __aenter__(self, *args, **kwargs):
         start_time = time.time()
@@ -169,15 +169,6 @@ class clientsession_retry_request:
                 self.cm_request = self.get_session().request(*self.args, **self.kwargs)
                 return await self.cm_request.__aenter__(*args, **kwargs)
             except aiohttp.ClientConnectionError:
-                log.exception(
-                    "Client connection error",
-                    resp_time=time.time() - start_time,
-                    timeout=timeout,
-                    request_max_retries=self.REQUEST_MAX_RETRIES,
-                    retries=retries,
-                    methods=self.args[0],
-                    upstream_url=self.args[1],
-                )
                 if retries + 1 >= self.REQUEST_MAX_RETRIES:
                     log.exception(
                         "Max of request retries reached",
@@ -188,6 +179,15 @@ class clientsession_retry_request:
                         upstream_url=self.args[1],
                     )
                     raise
+                log.exception(
+                    "Client connection error",
+                    resp_time=time.time() - start_time,
+                    timeout=timeout,
+                    request_max_retries=self.REQUEST_MAX_RETRIES,
+                    retries=retries,
+                    methods=self.args[0],
+                    upstream_url=self.args[1],
+                )
                 await asyncio.sleep(timeout)
 
     async def __aexit__(self, *args, **kwargs):
@@ -372,7 +372,7 @@ class GitCDN:
         query = request.query
         start_time = time.time()
         try:
-            async with clientsession_retry_request(
+            async with ClientSessionWithRetry(
                 self.get_session,
                 request.method.lower(),
                 upstream_url,
@@ -440,7 +440,7 @@ class GitCDN:
             upstream_url = self.upstream + path + "/info/refs?service=git-upload-pack"
             auth = request.headers["Authorization"]
             headers = {"Authorization": auth}
-            async with clientsession_retry_request(
+            async with ClientSessionWithRetry(
                 self.get_session,
                 "get",
                 upstream_url,
