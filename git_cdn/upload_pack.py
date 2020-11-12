@@ -353,15 +353,14 @@ class UploadPackHandler:
         except (CancelledError, ConnectionResetError):
             bind_contextvars(canceled=True)
             log.warning("Client disconnected during upload-pack")
-            if not self.pcache and proc.returncode is None:
-                proc.terminate()
-                log.info("Terminate upload-pack because client is disconnected")
             raise
         except Exception:
             log.exception("upload pack failure")
         finally:
             # Wait 10 min, for the shielded upload pack to terminate
-            await ensure_proc_terminated(proc, "git upload-pack", 10 * 60)
+            # or 2s if not caching, as the process is useless now
+            timeout = 10 * 60 if self.pcache else GIT_PROCESS_WAIT_TIMEOUT
+            await ensure_proc_terminated(proc, "git upload-pack", timeout)
             parallel_upload_pack -= 1
             log.info(
                 "Upload pack done",
