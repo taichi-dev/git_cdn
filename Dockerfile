@@ -20,7 +20,7 @@ ADD         . /app/
 RUN         make install-local-only-curpackage
 
 # Configure git for git-cdn
-RUN git config --global pack.threads 8
+RUN git config --global pack.threads 4
 
 # entrypoint contains stuff that you shouldn't want to customize
 # starts gunicorn
