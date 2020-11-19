@@ -7,7 +7,6 @@ from asyncio.subprocess import Process
 from concurrent.futures import CancelledError
 
 # Third Party Libraries
-import psutil
 from aiohttp.abc import AbstractStreamWriter
 from aiohttp.web_exceptions import HTTPInternalServerError
 from aiohttp.web_exceptions import HTTPUnauthorized
@@ -31,7 +30,6 @@ KILLED_PROCESS_TIMEOUT = 30
 cache_cleaner = PackCacheCleaner()
 BACKOFF_START = float(os.getenv("BACKOFF_START", "0.5"))
 BACKOFF_COUNT = int(os.getenv("BACKOFF_COUNT", "5"))
-parallel_upload_pack = 0
 
 
 def log_proc_if_error(proc, cmd):
@@ -322,17 +320,8 @@ class UploadPackHandler:
         return error
 
     async def doUploadPack(self, input):
-        global parallel_upload_pack
         t1 = time.time()
         self.not_our_ref = False
-        parallel_upload_pack += 1
-        cpu_percent = psutil.cpu_percent()
-        log.debug(
-            "Starting upload pack",
-            cpu_percent=cpu_percent,
-            parallel_upload_pack=parallel_upload_pack,
-            upload_pack=1,
-        )
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
             "--stateless-rpc",
@@ -361,12 +350,7 @@ class UploadPackHandler:
             # or 2s if not caching, as the process is useless now
             timeout = 10 * 60 if self.pcache else GIT_PROCESS_WAIT_TIMEOUT
             await ensure_proc_terminated(proc, "git upload-pack", timeout)
-            parallel_upload_pack -= 1
-            log.info(
-                "Upload pack done",
-                parallel_upload_pack=parallel_upload_pack,
-                upload_pack=-1,
-            )
+            log.debug("Upload pack done")
 
     async def write_pack_error(self, error: str):
         log.error("Upload pack, sending error to client", pack_error=error)

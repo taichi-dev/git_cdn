@@ -62,4 +62,3 @@ def worker_exit(server, worker):
 
 def child_exit(server, worker):
     log.warning("Child Worker exiting")
-

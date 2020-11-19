@@ -498,7 +498,7 @@ class GitCDN:
                 response_size=output_size,
                 response_status=getattr(response, "status", 500),
                 resp_time=time.time() - start_time,
-                sema_count=self.get_sema_count()
+                sema_count=self.get_sema_count(),
             )
         return response
 
