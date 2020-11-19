@@ -30,7 +30,7 @@ class AioSemaphore:
     async def acquire(self):
         # try non-blocking first
         if self.sema.acquire(False):
-            bind_contextvars(semaphore="non-blocking")
+            bind_contextvars(semaphore="non-blocking", sema_wait=0)
             return
         log.debug("wait for semaphore")
         start_wait = time()
