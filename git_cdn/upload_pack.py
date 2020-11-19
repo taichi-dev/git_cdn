@@ -103,7 +103,8 @@ def generate_url(base, path, auth=None):
 
 class RepoCache:
     def __init__(self, workdir, path, auth, upstream):
-        self.directory = find_directory(workdir, path).encode()
+        git_cache_dir = os.path.join(workdir, "git")
+        self.directory = find_directory(git_cache_dir, path).encode()
         self.auth = auth
         self.lock = self.directory + b".lock"
         self.url = generate_url(upstream, path, auth)
@@ -281,7 +282,6 @@ class UploadPackHandler:
         self.auth = auth
         self.path = path
         self.sema = sema
-        self.directory = find_directory(workdir, path).encode()
         self.writer = writer
         self.rcache = None
         self.pcache = None
@@ -325,7 +325,7 @@ class UploadPackHandler:
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
             "--stateless-rpc",
-            self.directory,
+            self.rcache.directory,
             stdout=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

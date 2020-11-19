@@ -145,7 +145,8 @@ async def test_fetch_needed(tmpdir, loop):
     # to simulate the case where we need a fetch
     os.system(
         "git clone --bare {} {} --single-branch --branch initial_commit".format(
-            generate_url(proc.upstream, proc.path, proc.auth), proc.directory.decode()
+            generate_url(proc.upstream, proc.path, proc.auth),
+            (workdir / "git" / MANIFEST_PATH),
         )
     )
 
