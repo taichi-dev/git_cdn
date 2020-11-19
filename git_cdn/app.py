@@ -498,21 +498,17 @@ class GitCDN:
                 response_size=output_size,
                 response_status=getattr(response, "status", 500),
                 resp_time=time.time() - start_time,
-                **self.get_sema_stats()
+                sema_count=self.get_sema_count()
             )
         return response
 
-    def get_sema_stats(self):
+    def get_sema_count(self):
         if self.sema is not None:
             try:
-                sema_count = self.sema.get_value()
+                return self.sema.get_value()
             except NotImplementedError:
-                sema_count = 0
-            return {
-                "sema_count": sema_count,
-                "sema_name": self.sema._semlock.name,
-            }
-        return {}
+                return 0
+        return 0
 
 
 def make_app(upstream, directory):
