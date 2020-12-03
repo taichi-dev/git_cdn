@@ -20,8 +20,8 @@ from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.packet_line import to_packet
 from git_cdn.upload_pack_input_parser import UploadPackInputParser
 from git_cdn.util import backoff
-from git_cdn.util import find_directory
 from git_cdn.util import get_bundle_paths
+from git_cdn.util import get_subdir
 
 log = getLogger()
 
@@ -102,13 +102,13 @@ def generate_url(base, path, auth=None):
 
 
 class RepoCache:
-    def __init__(self, workdir, path, auth, upstream):
-        git_cache_dir = os.path.join(workdir, "git")
-        self.directory = find_directory(git_cache_dir, path).encode()
+    def __init__(self, path, auth, upstream):
+        git_cache_dir = get_subdir("git")
+        self.directory = os.path.join(git_cache_dir, path).encode()
         self.auth = auth
         self.lock = self.directory + b".lock"
         self.url = generate_url(upstream, path, auth)
-        _, self.bundle_lock, self.bundle_file = get_bundle_paths(workdir, path)
+        _, self.bundle_lock, self.bundle_file = get_bundle_paths(path)
         self.prev_mtime = None
 
     def exists(self):
@@ -274,10 +274,7 @@ class UploadPackHandler:
     """Unit testable upload-pack handler which automatically call git fetch to update the local copy
     """
 
-    def __init__(
-        self, path, writer: AbstractStreamWriter, auth, workdir, upstream, sema=None
-    ):
-        self.workdir = workdir
+    def __init__(self, path, writer: AbstractStreamWriter, auth, upstream, sema=None):
         self.upstream = upstream
         self.auth = auth
         self.path = path
@@ -419,7 +416,7 @@ class UploadPackHandler:
         If there is no error, the process output is forwarded to the http client.
         If there is an error, git fetch or git clone are done.
         """
-        self.rcache = RepoCache(self.workdir, self.path, self.auth, self.upstream)
+        self.rcache = RepoCache(self.path, self.auth, self.upstream)
 
         for loop in range(2):
             if not await self.uploadPack(parsed_input):

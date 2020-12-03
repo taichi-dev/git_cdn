@@ -15,8 +15,8 @@ def get_data(filename):
         return f.read()
 
 
-async def cache_pack(hash, tmpdir):
-    pc = PackCache(hash, workdir=tmpdir)
+async def cache_pack(hash):
+    pc = PackCache(hash)
     fakewrite = FakeStreamWriter()
     fakeread = DataReader(get_data("upload_pack.bin"))
 
@@ -31,30 +31,30 @@ async def cache_pack(hash, tmpdir):
     return pc
 
 
-async def test_pack_cache_create(tmpdir, loop):
-    pc = await cache_pack("1234", tmpdir)
+async def test_pack_cache_create(tmpworkdir, loop):
+    pc = await cache_pack("1234")
     fakewrite = FakeStreamWriter()
     await pc.send_pack(fakewrite)
     assert fakewrite.output == get_data("pack_cache.bin")
 
 
-async def test_pack_cache_clean(tmpdir, loop):
+async def test_pack_cache_clean(tmpworkdir, loop):
     # gitlab-ci filesystem has 1 second precision
     sleep = 0
     if "CI_JOB_TOKEN" in os.environ:
         sleep = 1
 
-    pc1 = await cache_pack("11111", tmpdir)
+    pc1 = await cache_pack("11111")
     await asyncio.sleep(sleep)
-    pc2 = await cache_pack("22222", tmpdir)
+    pc2 = await cache_pack("22222")
     await asyncio.sleep(sleep)
-    pc3 = await cache_pack("33333", tmpdir)
+    pc3 = await cache_pack("33333")
     await asyncio.sleep(sleep)
 
     # read "11111" so cleaner should remove "22222"
     await pc1.send_pack(FakeStreamWriter())
 
-    cleaner = PackCacheCleaner(workdir=tmpdir)
+    cleaner = PackCacheCleaner()
     assert await cleaner.clean() == 0
     cleaner.max_size = 3000000
     fake_time = (time() - 120, time() - 120)
@@ -65,8 +65,8 @@ async def test_pack_cache_clean(tmpdir, loop):
     assert pc3.exists()
 
 
-async def test_pack_cache_abort(tmpdir, loop):
-    pc = PackCache("failed", workdir=tmpdir)
+async def test_pack_cache_abort(tmpworkdir, loop):
+    pc = PackCache("failed")
 
     fakeread = DataReader(get_data("upload_pack_trunc.bin"))
 
@@ -76,9 +76,9 @@ async def test_pack_cache_abort(tmpdir, loop):
     assert os.path.exists(pc.filename) is False
 
 
-async def test_corrupt(tmpdir):
+async def test_corrupt(tmpworkdir):
     data = get_data("upload_pack_trunc.bin")
-    pc = PackCache("fake", workdir=tmpdir)
+    pc = PackCache("fake")
     with open(pc.filename, "wb") as f:
         f.write(data)
     assert os.path.exists(pc.filename)

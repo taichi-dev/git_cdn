@@ -7,6 +7,7 @@ import aiohttp
 import pytest
 import yarl
 
+import git_cdn.util
 from git_cdn import app as git_cdn_app
 
 GITLAB_REPO_TEST_GROUP = os.getenv("GITLAB_REPO_TEST_GROUP", "grouperenault/repo_test")
@@ -16,13 +17,15 @@ CREDS = os.getenv("CREDS", "gitlab-ci-token:{}".format(os.getenv("CI_JOB_TOKEN")
 
 
 @pytest.fixture
-def app(tmpdir):
+def tmpworkdir(tmpdir):
+    git_cdn.util.WORKDIR = tmpdir
+    yield tmpdir
+
+
+@pytest.fixture
+def app(tmpworkdir):
     def _(cached=False):
-        if cached:
-            working_directory = os.environ["WORKING_DIRECTORY"]
-        else:
-            working_directory = str(tmpdir / "workdir")
-        return git_cdn_app.make_app(GITSERVER_UPSTREAM, working_directory)
+        return git_cdn_app.make_app(GITSERVER_UPSTREAM)
 
     yield _
 

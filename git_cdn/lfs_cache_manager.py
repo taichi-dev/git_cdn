@@ -15,6 +15,7 @@ from structlog import getLogger
 
 from git_cdn.aiolock import lock
 from git_cdn.util import check_path
+from git_cdn.util import get_subdir
 
 log = getLogger()
 
@@ -36,11 +37,11 @@ class LFSCacheManager:
 
     MAX_DOWNLOAD_TRIES = 10
 
-    def __init__(self, workdir, upstream_url, base_url, session):
-        self.workdir = os.path.expanduser(workdir)
+    def __init__(self, upstream_url, base_url, session):
         self.upstream_url = upstream_url
         self.base_url = base_url
         self.session = session
+        self.workdir = get_subdir("lfs")
 
     def set_base_url(self, base_url):
         self.base_url = base_url
@@ -66,7 +67,7 @@ class LFSCacheManager:
     async def get_cache_path_for_href(self, href):
         path = urlparse(href).path.lstrip("/")
         check_path(path)
-        oldpath = os.path.join(self.workdir, "lfs", path)
+        oldpath = os.path.join(self.workdir, path)
         bn = os.path.basename(oldpath)
         newdir = os.path.join(os.path.dirname(oldpath), bn[:2])
         newpath = os.path.join(newdir, bn)

@@ -197,7 +197,7 @@ class ClientSessionWithRetry:
 class GitCDN:
     MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "10"))
 
-    def __init__(self, upstream, workdir, app, router):
+    def __init__(self, upstream, app, router):
         log_server = os.getenv("LOGGING_SERVER")
         if log_server is not None:
             host, port = log_server.split(":")
@@ -210,7 +210,6 @@ class GitCDN:
         self.app = app
         self.router = router
         self.upstream = self.app.upstream = upstream
-        self.workdir = self.app.workdir = workdir
         self.router.add_get("/", self.handle_liveness)
         self.router.add_resource("/{path:.+}").add_route("*", self.routing_handler)
         self.proxysession = None
@@ -222,9 +221,7 @@ class GitCDN:
         # part on the init that needs to happen in the loop
         async def on_startup(_):
             self.get_session()
-            self.lfs_manager = LFSCacheManager(
-                workdir, upstream, None, self.proxysession
-            )
+            self.lfs_manager = LFSCacheManager(upstream, None, self.proxysession)
 
         async def on_shutdown(_):
             if self.proxysession is not None:
@@ -313,7 +310,7 @@ class GitCDN:
             bind_contextvars(handler="clone-bundle")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
-            cbm = CloneBundleManager(self.workdir, git_path)
+            cbm = CloneBundleManager(git_path)
             return await cbm.handle_clone_bundle(request)
 
         redirect_browsers(request, self.upstream)
@@ -467,12 +464,7 @@ class GitCDN:
 
             # run git-upload-pack
             proc = UploadPackHandler(
-                path,
-                writer,
-                auth=creds,
-                workdir=self.workdir,
-                upstream=self.upstream,
-                sema=self.sema,
+                path, writer, auth=creds, upstream=self.upstream, sema=self.sema,
             )
             await proc.run(content)
         except CancelledError:
@@ -511,16 +503,14 @@ class GitCDN:
         return 0
 
 
-def make_app(upstream, directory):
+def make_app(upstream):
     app = web.Application()
-    GitCDN(upstream, directory, app, app.router)
+    GitCDN(upstream, app, app.router)
     return app
 
 
 if os.getenv("GITSERVER_UPSTREAM") and os.getenv("WORKING_DIRECTORY"):
-    app = make_app(
-        os.getenv("GITSERVER_UPSTREAM", None), os.getenv("WORKING_DIRECTORY", None)
-    )
+    app = make_app(os.getenv("GITSERVER_UPSTREAM", None))
 
 
 def main():

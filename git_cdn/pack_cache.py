@@ -12,7 +12,7 @@ from structlog.contextvars import clear_contextvars
 # Third Party Libraries
 from git_cdn.aiolock import lock
 from git_cdn.packet_line import PacketLineChunkParser
-from git_cdn.util import find_directory
+from git_cdn.util import get_subdir
 
 log = getLogger()
 
@@ -27,12 +27,10 @@ class PackCache:
     cache the binary pack content to disk
     """
 
-    def __init__(self, hash, workdir=None):
-        workdir = workdir or os.getenv("WORKING_DIRECTORY", "")
+    def __init__(self, hash):
         self.hash = hash
-        self.filename = find_directory(
-            workdir, os.path.join("pack_cache2", self.hash[:2], self.hash)
-        )
+        self.dirname = get_subdir(os.path.join("pack_cache2", self.hash[:2]))
+        self.filename = os.path.join(self.dirname, self.hash)
         self.hit = True
 
     def read_lock(self):
@@ -104,13 +102,12 @@ class PackCache:
 
 
 class PackCacheCleaner:
-    def __init__(self, workdir=None, max_size=None):
-        self.workdir = workdir or os.path.expanduser(os.getenv("WORKING_DIRECTORY", ""))
-        self.cachedir = os.path.join(self.workdir, "pack_cache2")
+    def __init__(self):
+        self.cache_dir = get_subdir("pack_cache2")
         self.max_size = os.getenv("PACK_CACHE_SIZE_GB", "20")
         # Use cache size minus 512MB, to avoid exceeding the cache size too much.
         self.max_size = (int(self.max_size) * 1024 - 512) * 1024 * 1024
-        self.lockfile = find_directory(self.cachedir, "clean.lock")
+        self.lockfile = os.path.join(self.cache_dir, "clean.lock")
 
     def lock(self):
         return lock(self.lockfile, mode=fcntl.LOCK_EX)
@@ -118,8 +115,8 @@ class PackCacheCleaner:
     async def _clean(self):
         # When using os.scandir, DirEntry.stat() are cached (on Linux) and calling it
         # doesn't go through syscall
-        subdirs = [d for d in os.scandir(self.cachedir) if d.is_dir()]
-        subdirs = [os.path.join(self.cachedir, sub) for sub in subdirs]
+        subdirs = [d for d in os.scandir(self.cache_dir) if d.is_dir()]
+        subdirs = [os.path.join(self.cache_dir, sub) for sub in subdirs]
         all_files = [f for sub in subdirs for f in os.scandir(sub) if f.is_file()]
         total_size = sum(f.stat().st_size for f in all_files)
         log.debug(
@@ -153,7 +150,7 @@ class PackCacheCleaner:
             cache_duration=cache_duration.total_seconds(),
         )
         for f in to_delete:
-            cache = PackCache(f.name, workdir=self.workdir)
+            cache = PackCache(f.name)
             async with cache.write_lock():
                 log.debug("delete", hash=f.name, rm_size=f.stat().st_size)
                 cache.delete()

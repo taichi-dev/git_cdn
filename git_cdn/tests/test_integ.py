@@ -394,7 +394,6 @@ async def test_clone_with_bundle_but_not_exists(
         stdin=asyncio.subprocess.PIPE,
     )
     assert (await proc.wait()) == 128
-    assert not os.path.exists(os.path.join(app.workdir, "grouperenault/repo_test/404"))
 
 
 async def test_browser_ua(make_client, loop, app, request):
