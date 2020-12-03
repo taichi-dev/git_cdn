@@ -29,7 +29,7 @@ class PackCache:
 
     def __init__(self, hash):
         self.hash = hash
-        self.dirname = get_subdir(os.path.join("pack_cache2", self.hash[:2]))
+        self.dirname = get_subdir(os.path.join("pack_cache", self.hash[:2]))
         self.filename = os.path.join(self.dirname, self.hash)
         self.hit = True
 
@@ -103,7 +103,7 @@ class PackCache:
 
 class PackCacheCleaner:
     def __init__(self):
-        self.cache_dir = get_subdir("pack_cache2")
+        self.cache_dir = get_subdir("pack_cache")
         self.max_size = os.getenv("PACK_CACHE_SIZE_GB", "20")
         # Use cache size minus 512MB, to avoid exceeding the cache size too much.
         self.max_size = (int(self.max_size) * 1024 - 512) * 1024 * 1024
