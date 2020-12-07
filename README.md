@@ -6,15 +6,15 @@ a CDN for git
 [![coverage report](https://gitlab.com/grouperenault/git_cdn/badges/master/coverage.svg)](http://grouperenault.gitlab.io/git_cdn/coverage/index.html)
 
 git-cdn is a git mirror that you can place near your CI workers and developers.
-It acts as a gis a git+http(s) proxy, reduce WAN usage and accelerate git access for large repositories.
+It acts as a git+http(s) proxy, reducing WAN usage and accelerating git access for large repositories.
 
 <div align="center">
 <img src="img/git-cdn-overview.svg" />
 </div>
 
-git-cdn is an on-demand mirror, and only updates its local cache when requested by a client.
-This means that the mirror is always garanteed to return the latest version that is on the central repository.
-Other git mirroring solution (gitlab geo-replication, gerrit mirror) are cron or event based, and there is always a difference between central repository and mirrors, which makes it hard for continuous integration workers to use the mirrors.
+git-cdn is an on-demand mirror and only updates its local cache when requested by a client.
+This means that the mirror is always guaranteed to return the latest version from the central repository.
+Other git mirroring solution (gitlab geo-replication, gerrit mirror) are cron or event based, and there is always a difference between the central repository and mirrors which makes it hard for continuous integration workers to use the mirrors.
 
 git-cdn is super easy to setup:
 
@@ -29,18 +29,18 @@ git-cdn is super easy to setup:
     - There is no super use creds needed to be stored in the mirror
     - SSH auth is not supported, thus.
 
-- Git protocol v1 only. v2 can be implemented, at the price of more complex code (not yet done)
+- Git protocol v1 only. v2 can be implemented, at the price of more complex code (not yet done).
 
 - Git-LFS objects are cached.
 
-- Pack results are cached (when 20 workers are requesting the same git update, it will only be computed once)
+- Pack results are cached (when 20 workers are requesting the same git update, it will only be computed once).
 
 - Push (aka receive-pack) operations are implemented as a simple proxy, they will just forward to upstream server, without any smarts.
   This simplifies the git-config, avoiding to configure pushInsteadOf and http_proxy
 
-- Fast bootstrap of huge android repositories with clone.bundle in google storage
+- Fast bootstrap of huge android repositories with clone.bundle in google storage.
 
-- Tested with Gitlab, but should work with any BasicAuth git+http(s) server
+- Tested with Gitlab, but should work with any BasicAuth git+http(s) server.
 
 - Production ready. Already served peta bytes of git data for Renault SW Labs CI.
 
