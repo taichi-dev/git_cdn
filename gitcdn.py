@@ -4,6 +4,7 @@ import os
 
 # Third Party Libraries
 from aiohttp import web
+
 from git_cdn.app import app
 
 os.environ['PBR_VERSION'] = "1.0.0"

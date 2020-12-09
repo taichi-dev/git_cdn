@@ -3,6 +3,7 @@
 import os
 
 import pytest
+
 from git_cdn.packet_line import FLUSH_PKT
 from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.packet_line import PacketLineParser

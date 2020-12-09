@@ -16,9 +16,10 @@ import os
 import time
 from enum import Enum
 
+from structlog import getLogger
+
 # Third Party Libraries
 from git_cdn.util import backoff
-from structlog import getLogger
 
 log = getLogger()
 

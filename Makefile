@@ -27,10 +27,10 @@ install-local-only-curpackage:
 style: isort black
 
 isort:
-	pipenv run isort -y
+	pipenv run isort .
 
 isort-check:
-	pipenv run isort -c
+	pipenv run isort . --check
 
 black:
 	pipenv run black $(MODULE)

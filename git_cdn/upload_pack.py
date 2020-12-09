@@ -11,6 +11,9 @@ import psutil
 from aiohttp.abc import AbstractStreamWriter
 from aiohttp.web_exceptions import HTTPInternalServerError
 from aiohttp.web_exceptions import HTTPUnauthorized
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
+
 from git_cdn.aiolock import lock
 from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.pack_cache import PackCache
@@ -20,8 +23,6 @@ from git_cdn.upload_pack_input_parser import UploadPackInputParser
 from git_cdn.util import backoff
 from git_cdn.util import find_directory
 from git_cdn.util import get_bundle_paths
-from structlog import getLogger
-from structlog.contextvars import bind_contextvars
 
 log = getLogger()
 

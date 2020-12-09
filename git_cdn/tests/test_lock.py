@@ -2,6 +2,7 @@
 import asyncio
 import fcntl
 import os
+import sys
 import traceback
 from asyncio import Future
 from asyncio import gather
@@ -9,6 +10,7 @@ from asyncio import sleep
 
 # Third Party Libraries
 import pytest
+
 from git_cdn.aiolock import lock
 
 execution = []
@@ -110,7 +112,7 @@ async def test_monkey_lock(tmpdir, loop, num_times, with_cancel_monkey):
     dl = []
     for _ in range(num_times):
         proc = await asyncio.create_subprocess_exec(
-            "python",
+            sys.executable,
             monkey,
             str(with_cancel_monkey),
             cwd=str(tmpdir),

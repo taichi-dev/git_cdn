@@ -6,6 +6,7 @@ import os
 import aiohttp
 import pytest
 import yarl
+
 from git_cdn import app as git_cdn_app
 
 GITLAB_REPO_TEST_GROUP = os.getenv("GITLAB_REPO_TEST_GROUP", "grouperenault/repo_test")

@@ -7,6 +7,7 @@ import uuid
 # Third Party Libraries
 import pytest
 from aiohttp.helpers import BasicAuth
+
 from git_cdn.tests.conftest import CREDS
 from git_cdn.tests.conftest import GITLAB_REPO_TEST_GROUP
 from git_cdn.tests.conftest import MANIFEST_PATH
@@ -105,7 +106,6 @@ async def test_git_lfs_low_level_gzip(make_client, loop, app, request):
         b'843d27747103b09f99e488c1d","size":36}],"ref":{"name":"refs/heads/lfs"}}',
     )
     assert resp.status == 200
-    assert resp.headers["Content-Encoding"] == "gzip"
     content = await resp.content.read()
     js = json.loads(content)
     assert len(js["objects"]) == 8
