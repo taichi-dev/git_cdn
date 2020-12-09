@@ -86,7 +86,7 @@ integration_tests:
           alias: gitcdn
     variables:
         WORKING_DIRECTORY: /tmp
-        GITSERVER_UPSTREAM: $GITSERVER_UPSTREAM
+        GITSERVER_UPSTREAM: https://gitlab.com/
         UNDER_TEST_APP: http://gitcdn:8000
         # fix me: send patch to gitlab-runner so that services can be linked together..
         # right now, we can't test proxy support by runnering a simple squid proxy as a gitlabci service
