@@ -22,7 +22,7 @@ def app(tmpdir):
             working_directory = os.environ["WORKING_DIRECTORY"]
         else:
             working_directory = str(tmpdir / "workdir")
-        return git_cdn_app.make_app(os.environ["GITSERVER_UPSTREAM"], working_directory)
+        return git_cdn_app.make_app(GITSERVER_UPSTREAM, working_directory)
 
     yield _
 
