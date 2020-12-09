@@ -8,8 +8,9 @@ import uuid
 import pytest
 from aiohttp.helpers import BasicAuth
 
-from git_cdn.tests.conftest import CREDS, GITSERVER_UPSTREAM
+from git_cdn.tests.conftest import CREDS
 from git_cdn.tests.conftest import GITLAB_REPO_TEST_GROUP
+from git_cdn.tests.conftest import GITSERVER_UPSTREAM
 from git_cdn.tests.conftest import MANIFEST_PATH
 
 
@@ -22,9 +23,7 @@ async def test_bad_url(make_client, loop, app):
     )
     assert resp.status == 302
     # assert we redirect to the upstream server, and not our own users/sign_in
-    assert (
-        resp.headers["Location"] == GITSERVER_UPSTREAM + "users/sign_in"
-    )
+    assert resp.headers["Location"] == GITSERVER_UPSTREAM + "users/sign_in"
 
 
 async def test_proxy_no_content_encoding(make_client, loop, app, request):
