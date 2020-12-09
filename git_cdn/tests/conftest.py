@@ -8,9 +8,10 @@ import pytest
 import yarl
 from git_cdn import app as git_cdn_app
 
-GITLAB_REPO_TEST_GROUP = os.getenv("GITLAB_REPO_TEST_GROUP", "nestor/repo_test")
+GITLAB_REPO_TEST_GROUP = os.getenv("GITLAB_REPO_TEST_GROUP", "grouperenault/repo_test")
+GITSERVER_UPSTREAM = os.getenv("GITSERVER_UPSTREAM", "https://gitlab.com/")
 MANIFEST_PATH = f"{GITLAB_REPO_TEST_GROUP}/test_git_cdn.git"
-CREDS = os.environ["CREDS"]
+CREDS = os.getenv("CREDS", "gitlab-ci-token:{}".format(os.getenv("CI_JOB_TOKEN")))
 
 
 @pytest.fixture
