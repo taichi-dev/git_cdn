@@ -4,6 +4,7 @@ import socket
 import sys
 import uuid
 from logging.handlers import DatagramHandler
+from time import sleep
 
 # Third Party Libraries
 import structlog
@@ -39,6 +40,22 @@ gunicorn_access = [
     "response_size",
     "response_status",
 ]
+
+
+class HostUnreachable(Exception):
+    pass
+
+
+def wait_host_resolve(host):
+    for _ in range(0, 120):
+        try:
+            if socket.gethostbyname(host):
+                return
+        except socket.gaierror:
+            sleep(1)
+            # logger is not ready yet, so use print
+            print("logging host {} not found, retrying".format(host))
+    raise HostUnreachable("logging host {} not found".format(host))
 
 
 class UdpJsonHandler(DatagramHandler):
@@ -116,6 +133,8 @@ def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
         bind_threadlocal(host=host)
     if version:
         bind_threadlocal(application_version=version)
+    # wait for host dns to be reachable to avoid dropping first logs
+    wait_host_resolve(host)
 
 
 def enable_console_logs():

@@ -146,7 +146,7 @@ class RepoCache:
 
         cleaned_args = [cleanup(a) for a in args]
 
-        log.info("git_cmd start", cmd=cleaned_args)
+        log.debug("git_cmd start", cmd=cleaned_args)
         fetch_proc = await asyncio.create_subprocess_exec(
             "git",
             *args,
@@ -162,7 +162,7 @@ class RepoCache:
         if b"HTTP Basic: Access denied" in stderr_data:
             raise HTTPUnauthorized(reason=stderr_data)
 
-        log.info(
+        log.debug(
             "git_cmd done",
             cmd=cleaned_args,
             stdout_data=stdout_data.decode(),
@@ -307,7 +307,7 @@ class UploadPackHandler:
     async def check_firstchunk(self, reader, input, start_time):
         firstchunk = await reader.first_chunk()
         error = firstchunk[4:7] == b"ERR"
-        log.info(
+        log.debug(
             "firstchunk from local upload-pack",
             firstchunk=firstchunk,
             uperror=error,
@@ -327,7 +327,7 @@ class UploadPackHandler:
         self.not_our_ref = False
         parallel_upload_pack += 1
         cpu_percent = psutil.cpu_percent()
-        log.info(
+        log.debug(
             "Starting upload pack",
             cpu_percent=cpu_percent,
             parallel_upload_pack=parallel_upload_pack,

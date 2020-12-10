@@ -32,7 +32,7 @@ class AioSemaphore:
         if self.sema.acquire(False):
             bind_contextvars(semaphore="non-blocking")
             return
-        log.info("wait for semaphore")
+        log.debug("wait for semaphore")
         start_wait = time()
         p = asyncio.get_event_loop().run_in_executor(executor, self._acquire)
         try:
