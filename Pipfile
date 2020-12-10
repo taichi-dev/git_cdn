@@ -3,7 +3,7 @@
 pyflakes = "*"
 pylint = ">=1.8"
 black = "==19.10b0"
-pytest = "<6.0.0"
+pytest = "*"
 pipenv-to-requirements = ">=0.1.9"
 "flake8-coding" = "*"
 "flake8-comprehensions" = "*"
@@ -17,6 +17,8 @@ pytest-cov = "*"
 pytest-asyncio = "*"
 pytest-aiohttp = "*"
 pytest-benchmark = "*"
+typed-ast = "*"
+importlib-metadata = {version = ">=0.12", markers="python_version < '3.8'"}
 
 [packages]
 pbr = "*"

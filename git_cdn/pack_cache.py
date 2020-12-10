@@ -5,13 +5,14 @@ import uuid
 from datetime import datetime
 from time import time
 
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
+from structlog.contextvars import clear_contextvars
+
 # Third Party Libraries
 from git_cdn.aiolock import lock
 from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.util import find_directory
-from structlog import getLogger
-from structlog.contextvars import bind_contextvars
-from structlog.contextvars import clear_contextvars
 
 log = getLogger()
 

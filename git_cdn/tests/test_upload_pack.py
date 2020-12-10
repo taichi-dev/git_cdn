@@ -4,7 +4,10 @@ import os
 # Third Party Libraries
 import pytest
 from aiohttp.abc import AbstractStreamWriter
+
+from git_cdn.tests.conftest import CREDS
 from git_cdn.tests.conftest import GITLAB_REPO_TEST_GROUP
+from git_cdn.tests.conftest import GITSERVER_UPSTREAM
 from git_cdn.upload_pack import RepoCache
 from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.upload_pack import generate_url
@@ -32,9 +35,7 @@ SHALLOW_INPUT_TRUNC = (
     b"""0034shallow 4284b1521b200ba4934ee710a4a538549f1f0f97000cdeepen 10000"""
 )
 
-CREDS = os.environ["CREDS"]
 MANIFEST_PATH = f"{GITLAB_REPO_TEST_GROUP}/test_git_cdn.git"
-UPSTREAM = os.environ["GITSERVER_UPSTREAM"]
 
 
 class FakeStreamWriter(AbstractStreamWriter):
@@ -80,7 +81,11 @@ def assert_upload_ok(data):
 async def test_basic(tmpdir, loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(CLONE_INPUT)
@@ -97,7 +102,11 @@ async def test_huge(tmpdir, loop):
     HUGE_CLONE_INPUT += b"00000009done\n"
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
     await proc.run(HUGE_CLONE_INPUT)
     assert_upload_ok(writer.output)
@@ -115,7 +124,11 @@ async def test_huge2(tmpdir, loop):
     HUGE_CLONE_INPUT += b"00000009done\n"
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
     await proc.run(HUGE_CLONE_INPUT)
     data = writer.output
@@ -126,7 +139,7 @@ async def test_fetch_needed(tmpdir, loop):
     workdir = tmpdir / "workdir"
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(workdir), upstream=UPSTREAM
+        MANIFEST_PATH, writer, CREDS, workdir=str(workdir), upstream=GITSERVER_UPSTREAM
     )
     # before run(), clone a small part of the repo (no need to bother for async)
     # to simulate the case where we need a fetch
@@ -144,7 +157,11 @@ async def test_unknown_want(tmpdir, loop):
     writer = FakeStreamWriter()
 
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(
@@ -162,7 +179,11 @@ async def test_unknown_want2(tmpdir, loop):
     writer = FakeStreamWriter()
 
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
     parsed_input = UploadPackInputParser(
         CLONE_INPUT.replace(
@@ -182,7 +203,11 @@ async def test_unknown_want_cache(tmpdir, loop, monkeypatch):
     monkeypatch.setenv("PACK_CACHE_MULTI", "true")
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(
@@ -199,7 +224,11 @@ async def test_unknown_want_cache(tmpdir, loop, monkeypatch):
 async def test_shallow(tmpdir, loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(SHALLOW_INPUT)
@@ -215,7 +244,7 @@ async def test_shallow_trunc(tmpdir, loop):
         writer,
         CREDS,
         workdir=os.environ.get("WORKING_DIRECTORY", str(tmpdir / "workdir")),
-        upstream=UPSTREAM,
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(SHALLOW_INPUT_TRUNC)
@@ -226,7 +255,11 @@ async def test_shallow_trunc2(tmpdir, loop):
     writer = FakeStreamWriter()
     # make sur the cache is warm
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(SHALLOW_INPUT)
@@ -255,7 +288,11 @@ async def test_shallow_trunc2(tmpdir, loop):
 async def test_wrong_input(tmpdir, loop, clone_input):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(clone_input)
@@ -267,7 +304,11 @@ async def test_wrong_input(tmpdir, loop, clone_input):
 async def test_flush_input(tmpdir, loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, workdir=str(tmpdir / "workdir"), upstream=UPSTREAM
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        workdir=str(tmpdir / "workdir"),
+        upstream=GITSERVER_UPSTREAM,
     )
 
     await proc.run(b"0000")

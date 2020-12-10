@@ -7,8 +7,10 @@ import uuid
 # Third Party Libraries
 import pytest
 from aiohttp.helpers import BasicAuth
+
 from git_cdn.tests.conftest import CREDS
 from git_cdn.tests.conftest import GITLAB_REPO_TEST_GROUP
+from git_cdn.tests.conftest import GITSERVER_UPSTREAM
 from git_cdn.tests.conftest import MANIFEST_PATH
 
 
@@ -21,9 +23,7 @@ async def test_bad_url(make_client, loop, app):
     )
     assert resp.status == 302
     # assert we redirect to the upstream server, and not our own users/sign_in
-    assert (
-        resp.headers["Location"] == os.environ["GITSERVER_UPSTREAM"] + "users/sign_in"
-    )
+    assert resp.headers["Location"] == GITSERVER_UPSTREAM + "users/sign_in"
 
 
 async def test_proxy_no_content_encoding(make_client, loop, app, request):
@@ -75,7 +75,7 @@ async def test_git_lfs_low_level(make_client, loop, app, request):
     href = js["objects"][0]["actions"]["download"]["href"]
     assert "3ecc0bf8cd58b5bcfe371c55bad3bf72aca9dfce0b8f31a99aa565267d71ae05" in href
 
-    assert os.environ["GITSERVER_UPSTREAM"] not in href
+    assert GITSERVER_UPSTREAM not in href
 
 
 async def test_git_lfs_low_level_gzip(make_client, loop, app, request):
@@ -105,7 +105,6 @@ async def test_git_lfs_low_level_gzip(make_client, loop, app, request):
         b'843d27747103b09f99e488c1d","size":36}],"ref":{"name":"refs/heads/lfs"}}',
     )
     assert resp.status == 200
-    assert resp.headers["Content-Encoding"] == "gzip"
     content = await resp.content.read()
     js = json.loads(content)
     assert len(js["objects"]) == 8
@@ -412,7 +411,7 @@ async def test_browser_ua(make_client, loop, app, request):
     )
     assert resp.status == 308
     # assert we redirect to the upstream server
-    assert resp.headers["Location"] == os.environ["GITSERVER_UPSTREAM"] + "group"
+    assert resp.headers["Location"] == GITSERVER_UPSTREAM + "group"
 
 
 async def test_clonebundle_404(make_client, loop, app, request):

@@ -3,10 +3,11 @@ import hashlib
 import os
 import uuid
 
+from structlog import getLogger
+
 # Third Party Libraries
 from git_cdn.packet_line import FLUSH_PKT
 from git_cdn.packet_line import PacketLineParser
-from structlog import getLogger
 
 log = getLogger()
 

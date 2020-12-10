@@ -11,6 +11,7 @@ import mock
 import pytest
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
+
 from git_cdn.aiolock import lock
 from git_cdn.lfs_cache_manager import LFSCacheManager
 

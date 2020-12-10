@@ -40,9 +40,8 @@ async def test_pack_cache_create(tmpdir, loop):
 
 async def test_pack_cache_clean(tmpdir, loop):
     # gitlab-ci filesystem has 1 second precision
-    mtime_precision = os.environ.get("MTIME_PRECISION", "ns")
     sleep = 0
-    if mtime_precision == "s":
+    if "CI_JOB_TOKEN" in os.environ:
         sleep = 1
 
     pc1 = await cache_pack("11111", tmpdir)

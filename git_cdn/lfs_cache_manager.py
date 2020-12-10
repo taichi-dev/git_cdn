@@ -11,9 +11,10 @@ from urllib.parse import urlparse
 from aiohttp.client_exceptions import ClientPayloadError
 from aiohttp.web_exceptions import HTTPFound
 from aiohttp.web_exceptions import HTTPNotFound
+from structlog import getLogger
+
 from git_cdn.aiolock import lock
 from git_cdn.util import check_path
-from structlog import getLogger
 
 log = getLogger()
 

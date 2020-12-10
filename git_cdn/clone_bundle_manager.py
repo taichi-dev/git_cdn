@@ -10,9 +10,10 @@ from aiohttp import ClientSession
 from aiohttp import ClientTimeout
 from aiohttp import TCPConnector
 from aiohttp import web
+from structlog import getLogger
+
 from git_cdn.aiolock import lock
 from git_cdn.util import get_bundle_paths
-from structlog import getLogger
 
 log = getLogger()
 

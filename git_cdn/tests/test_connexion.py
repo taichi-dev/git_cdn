@@ -2,6 +2,7 @@
 # Third Party Libraries
 import aiohttp
 from aiohttp.helpers import BasicAuth
+
 from git_cdn.tests.conftest import CREDS
 from git_cdn.tests.conftest import MANIFEST_PATH
 

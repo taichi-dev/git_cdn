@@ -20,6 +20,11 @@ from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadRequest
 from aiohttp.web_exceptions import HTTPPermanentRedirect
 from aiohttp.web_exceptions import HTTPUnauthorized
+from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+from structlog import getLogger
+from structlog.contextvars import bind_contextvars
+from structlog.contextvars import clear_contextvars
+
 from git_cdn.clone_bundle_manager import CloneBundleManager
 from git_cdn.clone_bundle_manager import close_bundle_session
 from git_cdn.lfs_cache_manager import LFSCacheManager
@@ -28,16 +33,12 @@ from git_cdn.log import enable_udp_logs
 from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.util import backoff
 from git_cdn.util import check_path
-from sentry_sdk.integrations.aiohttp import AioHttpIntegration
-from structlog import getLogger
-from structlog.contextvars import bind_contextvars
-from structlog.contextvars import clear_contextvars
 
 GITCDN_VERSION = None
 try:
     from git_cdn.version import (
-        GITCDN_VERSION,
-    )  # pylint: disable=import-outside-toplevel
+        GITCDN_VERSION,  # pylint: disable=import-outside-toplevel
+    )
 except ImportError:
     pass
 
