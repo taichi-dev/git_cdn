@@ -17,11 +17,9 @@ from git_cdn.lfs_cache_manager import LFSCacheManager
 
 
 @pytest.fixture
-def cache_manager(tmpdir):
-    assert not tmpdir.listdir()
-    c = LFSCacheManager(
-        str(tmpdir / "workdir"), "https://upstream", "http://base", None
-    )
+def cache_manager(tmpworkdir):
+    assert not tmpworkdir.listdir()
+    c = LFSCacheManager("https://upstream", "http://base", None)
     return c
 
 
@@ -85,7 +83,9 @@ async def test_hook_lfs_batch_no_action(mocked_cache_manager, loop):
     )
 
 
-async def test_download_object_with_lock(cache_manager, tmpdir, loop, aiohttp_client):
+async def test_download_object_with_lock(
+    cache_manager, tmpworkdir, loop, aiohttp_client
+):
     TEXT = "Hello, world"
 
     async def hello(request):
@@ -99,14 +99,14 @@ async def test_download_object_with_lock(cache_manager, tmpdir, loop, aiohttp_cl
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = str(tmpdir / checksum)
+    fn = str(tmpworkdir / checksum)
     await cache_manager.download_object_with_lock(fn, path, {})
     with open(fn) as f:
         assert f.read() == TEXT
 
 
 async def test_download_object_bad_checksum(
-    cache_manager, tmpdir, loop, aiohttp_client
+    cache_manager, tmpworkdir, loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 
@@ -119,13 +119,13 @@ async def test_download_object_bad_checksum(
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = str(tmpdir / "xx")
+    fn = str(tmpworkdir / "xx")
     with pytest.raises(HTTPNotFound):
         await cache_manager.download_object_with_lock(fn, path, {})
     assert not os.path.exists(fn)
 
 
-async def test_download_object(cache_manager, tmpdir, loop, aiohttp_client):
+async def test_download_object(cache_manager, tmpworkdir, loop, aiohttp_client):
     TEXT = "Hello, world"
 
     async def hello(request):
@@ -144,7 +144,9 @@ async def test_download_object(cache_manager, tmpdir, loop, aiohttp_client):
         assert f.read() == TEXT
 
 
-async def test_download_object_cache_hit(cache_manager, tmpdir, loop, aiohttp_client):
+async def test_download_object_cache_hit(
+    cache_manager, tmpworkdir, loop, aiohttp_client
+):
     TEXT = "Hello, world"
 
     async def hello(request):
@@ -169,7 +171,7 @@ async def test_download_object_cache_hit(cache_manager, tmpdir, loop, aiohttp_cl
 
 
 async def test_download_object_cache_being_written(
-    cache_manager, tmpdir, loop, aiohttp_client
+    cache_manager, tmpworkdir, loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 
@@ -197,7 +199,7 @@ async def test_download_object_cache_being_written(
 
 
 async def test_download_object_download_error(
-    cache_manager, tmpdir, loop, aiohttp_client
+    cache_manager, tmpworkdir, loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 

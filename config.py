@@ -6,7 +6,8 @@ from multiprocessing import BoundedSemaphore
 from multiprocessing import cpu_count
 
 workers = int(os.getenv("NUM_WORKER", "8"))
-timeout = 30
+# set a big timeout to avoid worker being killed, and leaking semaphore
+timeout = 3600
 # gitCDN requests take can be very long, so try to finish them before killing.
 graceful_timeout = 60 * 5
 worker_class = "aiohttp.worker.GunicornWebWorker"
@@ -53,3 +54,11 @@ def worker_int(worker):
 
 def worker_abort(worker):
     log.error("worker received SIGABRT signal")
+
+
+def worker_exit(server, worker):
+    log.warning("Worker Exiting")
+
+
+def child_exit(server, worker):
+    log.warning("Child Worker exiting")

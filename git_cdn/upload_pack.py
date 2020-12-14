@@ -7,7 +7,6 @@ from asyncio.subprocess import Process
 from concurrent.futures import CancelledError
 
 # Third Party Libraries
-import psutil
 from aiohttp.abc import AbstractStreamWriter
 from aiohttp.web_exceptions import HTTPInternalServerError
 from aiohttp.web_exceptions import HTTPUnauthorized
@@ -21,8 +20,8 @@ from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.packet_line import to_packet
 from git_cdn.upload_pack_input_parser import UploadPackInputParser
 from git_cdn.util import backoff
-from git_cdn.util import find_directory
 from git_cdn.util import get_bundle_paths
+from git_cdn.util import get_subdir
 
 log = getLogger()
 
@@ -31,7 +30,6 @@ KILLED_PROCESS_TIMEOUT = 30
 cache_cleaner = PackCacheCleaner()
 BACKOFF_START = float(os.getenv("BACKOFF_START", "0.5"))
 BACKOFF_COUNT = int(os.getenv("BACKOFF_COUNT", "5"))
-parallel_upload_pack = 0
 
 
 def log_proc_if_error(proc, cmd):
@@ -104,12 +102,13 @@ def generate_url(base, path, auth=None):
 
 
 class RepoCache:
-    def __init__(self, workdir, path, auth, upstream):
-        self.directory = find_directory(workdir, path).encode()
+    def __init__(self, path, auth, upstream):
+        git_cache_dir = get_subdir("git")
+        self.directory = os.path.join(git_cache_dir, path).encode()
         self.auth = auth
         self.lock = self.directory + b".lock"
         self.url = generate_url(upstream, path, auth)
-        _, self.bundle_lock, self.bundle_file = get_bundle_paths(workdir, path)
+        _, self.bundle_lock, self.bundle_file = get_bundle_paths(path)
         self.prev_mtime = None
 
     def exists(self):
@@ -275,15 +274,11 @@ class UploadPackHandler:
     """Unit testable upload-pack handler which automatically call git fetch to update the local copy
     """
 
-    def __init__(
-        self, path, writer: AbstractStreamWriter, auth, workdir, upstream, sema=None
-    ):
-        self.workdir = workdir
+    def __init__(self, path, writer: AbstractStreamWriter, auth, upstream, sema=None):
         self.upstream = upstream
         self.auth = auth
         self.path = path
         self.sema = sema
-        self.directory = find_directory(workdir, path).encode()
         self.writer = writer
         self.rcache = None
         self.pcache = None
@@ -322,21 +317,12 @@ class UploadPackHandler:
         return error
 
     async def doUploadPack(self, input):
-        global parallel_upload_pack
         t1 = time.time()
         self.not_our_ref = False
-        parallel_upload_pack += 1
-        cpu_percent = psutil.cpu_percent()
-        log.debug(
-            "Starting upload pack",
-            cpu_percent=cpu_percent,
-            parallel_upload_pack=parallel_upload_pack,
-            upload_pack=1,
-        )
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
             "--stateless-rpc",
-            self.directory,
+            self.rcache.directory,
             stdout=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -353,21 +339,15 @@ class UploadPackHandler:
         except (CancelledError, ConnectionResetError):
             bind_contextvars(canceled=True)
             log.warning("Client disconnected during upload-pack")
-            if not self.pcache and proc.returncode is None:
-                proc.terminate()
-                log.info("Terminate upload-pack because client is disconnected")
             raise
         except Exception:
             log.exception("upload pack failure")
         finally:
             # Wait 10 min, for the shielded upload pack to terminate
-            await ensure_proc_terminated(proc, "git upload-pack", 10 * 60)
-            parallel_upload_pack -= 1
-            log.info(
-                "Upload pack done",
-                parallel_upload_pack=parallel_upload_pack,
-                upload_pack=-1,
-            )
+            # or 2s if not caching, as the process is useless now
+            timeout = 10 * 60 if self.pcache else GIT_PROCESS_WAIT_TIMEOUT
+            await ensure_proc_terminated(proc, "git upload-pack", timeout)
+            log.debug("Upload pack done")
 
     async def write_pack_error(self, error: str):
         log.error("Upload pack, sending error to client", pack_error=error)
@@ -436,7 +416,7 @@ class UploadPackHandler:
         If there is no error, the process output is forwarded to the http client.
         If there is an error, git fetch or git clone are done.
         """
-        self.rcache = RepoCache(self.workdir, self.path, self.auth, self.upstream)
+        self.rcache = RepoCache(self.path, self.auth, self.upstream)
 
         for loop in range(2):
             if not await self.uploadPack(parsed_input):

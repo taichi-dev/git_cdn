@@ -153,14 +153,14 @@ def hide_auth_on_headers(h):
         )
 
 
-class clientsession_retry_request:
+class ClientSessionWithRetry:
     REQUEST_MAX_RETRIES = int(os.getenv("REQUEST_MAX_RETRIES", "10"))
-    cm_request = None
 
     def __init__(self, get_session, *args, **kwargs):
         self.get_session = get_session
         self.args = args
         self.kwargs = kwargs
+        self.cm_request = None
 
     async def __aenter__(self, *args, **kwargs):
         start_time = time.time()
@@ -169,16 +169,7 @@ class clientsession_retry_request:
                 self.cm_request = self.get_session().request(*self.args, **self.kwargs)
                 return await self.cm_request.__aenter__(*args, **kwargs)
             except aiohttp.ClientConnectionError:
-                log.exception(
-                    "Client connection error",
-                    resp_time=time.time() - start_time,
-                    timeout=timeout,
-                    request_max_retries=self.REQUEST_MAX_RETRIES,
-                    retries=retries,
-                    methods=self.args[0],
-                    upstream_url=self.args[1],
-                )
-                if retries >= self.REQUEST_MAX_RETRIES:
+                if retries + 1 >= self.REQUEST_MAX_RETRIES:
                     log.exception(
                         "Max of request retries reached",
                         resp_time=time.time() - start_time,
@@ -188,6 +179,15 @@ class clientsession_retry_request:
                         upstream_url=self.args[1],
                     )
                     raise
+                log.exception(
+                    "Client connection error",
+                    resp_time=time.time() - start_time,
+                    timeout=timeout,
+                    request_max_retries=self.REQUEST_MAX_RETRIES,
+                    retries=retries,
+                    methods=self.args[0],
+                    upstream_url=self.args[1],
+                )
                 await asyncio.sleep(timeout)
 
     async def __aexit__(self, *args, **kwargs):
@@ -197,7 +197,7 @@ class clientsession_retry_request:
 class GitCDN:
     MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "10"))
 
-    def __init__(self, upstream, workdir, app, router):
+    def __init__(self, upstream, app, router):
         log_server = os.getenv("LOGGING_SERVER")
         if log_server is not None:
             host, port = log_server.split(":")
@@ -210,7 +210,6 @@ class GitCDN:
         self.app = app
         self.router = router
         self.upstream = self.app.upstream = upstream
-        self.workdir = self.app.workdir = workdir
         self.router.add_get("/", self.handle_liveness)
         self.router.add_resource("/{path:.+}").add_route("*", self.routing_handler)
         self.proxysession = None
@@ -222,9 +221,7 @@ class GitCDN:
         # part on the init that needs to happen in the loop
         async def on_startup(_):
             self.get_session()
-            self.lfs_manager = LFSCacheManager(
-                workdir, upstream, None, self.proxysession
-            )
+            self.lfs_manager = LFSCacheManager(upstream, None, self.proxysession)
 
         async def on_shutdown(_):
             if self.proxysession is not None:
@@ -313,7 +310,7 @@ class GitCDN:
             bind_contextvars(handler="clone-bundle")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
-            cbm = CloneBundleManager(self.workdir, git_path)
+            cbm = CloneBundleManager(git_path)
             return await cbm.handle_clone_bundle(request)
 
         redirect_browsers(request, self.upstream)
@@ -372,7 +369,7 @@ class GitCDN:
         query = request.query
         start_time = time.time()
         try:
-            async with clientsession_retry_request(
+            async with ClientSessionWithRetry(
                 self.get_session,
                 request.method.lower(),
                 upstream_url,
@@ -440,7 +437,7 @@ class GitCDN:
             upstream_url = self.upstream + path + "/info/refs?service=git-upload-pack"
             auth = request.headers["Authorization"]
             headers = {"Authorization": auth}
-            async with clientsession_retry_request(
+            async with ClientSessionWithRetry(
                 self.get_session,
                 "get",
                 upstream_url,
@@ -467,12 +464,7 @@ class GitCDN:
 
             # run git-upload-pack
             proc = UploadPackHandler(
-                path,
-                writer,
-                auth=creds,
-                workdir=self.workdir,
-                upstream=self.upstream,
-                sema=self.sema,
+                path, writer, auth=creds, upstream=self.upstream, sema=self.sema,
             )
             await proc.run(content)
         except CancelledError:
@@ -498,33 +490,27 @@ class GitCDN:
                 response_size=output_size,
                 response_status=getattr(response, "status", 500),
                 resp_time=time.time() - start_time,
-                **self.get_sema_stats()
+                sema_count=self.get_sema_count(),
             )
         return response
 
-    def get_sema_stats(self):
+    def get_sema_count(self):
         if self.sema is not None:
             try:
-                sema_count = self.sema.get_value()
+                return self.sema.get_value()
             except NotImplementedError:
-                sema_count = 0
-            return {
-                "sema_count": sema_count,
-                "sema_name": self.sema._semlock.name,
-            }
-        return {}
+                return 0
+        return 0
 
 
-def make_app(upstream, directory):
+def make_app(upstream):
     app = web.Application()
-    GitCDN(upstream, directory, app, app.router)
+    GitCDN(upstream, app, app.router)
     return app
 
 
 if os.getenv("GITSERVER_UPSTREAM") and os.getenv("WORKING_DIRECTORY"):
-    app = make_app(
-        os.getenv("GITSERVER_UPSTREAM", None), os.getenv("WORKING_DIRECTORY", None)
-    )
+    app = make_app(os.getenv("GITSERVER_UPSTREAM", None))
 
 
 def main():

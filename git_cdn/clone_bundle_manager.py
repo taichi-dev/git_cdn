@@ -70,10 +70,8 @@ class CloneBundleManager:
     )
     CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 32 * 1024))
 
-    def __init__(self, workdir, git_path):
-        self.bundle_name, self.lock, self.bundle_file = get_bundle_paths(
-            workdir, git_path
-        )
+    def __init__(self, git_path):
+        self.bundle_name, self.lock, self.bundle_file = get_bundle_paths(git_path)
         self.cache_hits = 0
         if not http_session:
             new_session()

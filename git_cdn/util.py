@@ -4,6 +4,8 @@ import os
 # Third Party Libraries
 from aiohttp.web_exceptions import HTTPBadRequest
 
+WORKDIR = os.path.expanduser(os.getenv("WORKING_DIRECTORY", "/tmp/workdir"))
+
 
 def check_path(path):
     if path.startswith("/"):
@@ -12,26 +14,22 @@ def check_path(path):
         raise HTTPBadRequest(reason="bad path: " + path)
 
 
-def find_directory(workdir, path):
+def get_subdir(subpath):
     """find or create the working directory of the repository path"""
-    workdir = os.path.expanduser(workdir)
-    d = os.path.join(workdir, path)
-    if not os.path.isdir(os.path.dirname(d)):
-        os.makedirs(os.path.dirname(d), exist_ok=True)
+    d = os.path.join(WORKDIR, subpath)
+    if not os.path.isdir(d):
+        os.makedirs(d, exist_ok=True)
     return d
 
 
-def get_bundle_paths(workdir, git_path):
+def get_bundle_paths(git_path):
     """compute the locks and bundle paths"""
-    workdir = os.path.expanduser(workdir)
     git_path = git_path.rstrip("/")
     assert git_path.endswith(".git")
-    workdir = os.path.join(workdir, "bundles")
-    if not os.path.isdir(workdir):
-        os.makedirs(workdir, exist_ok=True)
+    bundle_dir = get_subdir("bundles")
     bundle_name = os.path.basename(git_path)[:-4]  # remove ending '.git'
-    lock = os.path.join(workdir, bundle_name + ".lock")
-    bundle_file = os.path.join(workdir, bundle_name + "_clone.bundle")
+    lock = os.path.join(bundle_dir, bundle_name + ".lock")
+    bundle_file = os.path.join(bundle_dir, bundle_name + "_clone.bundle")
     return bundle_name, lock, bundle_file
 
 
