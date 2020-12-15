@@ -1,4 +1,3 @@
-
 # Standard Library
 import os
 
@@ -7,9 +6,7 @@ from aiohttp import web
 
 from git_cdn.app import app
 
-os.environ['PBR_VERSION'] = "1.0.0"
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     if not (os.getenv("GITSERVER_UPSTREAM") and os.getenv("WORKING_DIRECTORY")):
         print("please define GITSERVER_UPSTREAM and WORKING_DIRECTORY")
     else:

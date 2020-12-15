@@ -57,8 +57,8 @@ class PacketLineParser:
 
 class PacketLineChunkParser:
     """Parse git packets on the fly.
-        Drop all sideband 2 packet, as they are not meaningful inside the cache
-        Replace first sideband 2 packet with a message telling git-cdn is using the cache
+    Drop all sideband 2 packet, as they are not meaningful inside the cache
+    Replace first sideband 2 packet with a message telling git-cdn is using the cache
     """
 
     class ParseError(Exception):

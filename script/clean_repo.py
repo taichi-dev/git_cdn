@@ -7,12 +7,12 @@ from shutil import rmtree
 NOW = datetime.now()
 
 
-def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
+    return "%.1f%s%s" % (num, "Yi", suffix)
 
 
 # using scandir recursively is faster than using os.walk()
@@ -69,7 +69,7 @@ class GitRepo:
             print(s)
 
     def delete(self):
-        print(f"Delete {self.directory.path}", end='')
+        print(f"Delete {self.directory.path}", end="")
         rmtree(self.directory.path, ignore_errors=True)
         try:
             os.unlink(self.lockfile)
@@ -96,10 +96,19 @@ def mtime(g):
 
 def clean_git():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--size", help="display size of each git repository",
-                    action="store_true")
-    parser.add_argument("-d", "--delete", help="delete old repository", action="store_true")
-    parser.add_argument("-o", "--older-than", help="delete repository, not accessed for more than OLDER_THAN days", default=100, type=int)
+    parser.add_argument(
+        "-s", "--size", help="display size of each git repository", action="store_true"
+    )
+    parser.add_argument(
+        "-d", "--delete", help="delete old repository", action="store_true"
+    )
+    parser.add_argument(
+        "-o",
+        "--older-than",
+        help="delete repository, not accessed for more than OLDER_THAN days",
+        default=100,
+        type=int,
+    )
     args = parser.parse_args()
 
     workdir = os.path.expanduser(os.getenv("WORKING_DIRECTORY", ""))

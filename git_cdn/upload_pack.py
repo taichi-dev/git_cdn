@@ -204,7 +204,10 @@ class RepoCache:
                     os.unlink(self.bundle_file)
 
             rm_proc = await asyncio.create_subprocess_exec(
-                "rm", "-rf", self.directory, stdin=asyncio.subprocess.PIPE,
+                "rm",
+                "-rf",
+                self.directory,
+                stdin=asyncio.subprocess.PIPE,
             )
             await ensure_proc_terminated(rm_proc, "rm", timeout=3600)
             _, stderr, returncode = await self.run_git(
@@ -248,8 +251,7 @@ class StdOutReader:
         return await self.stdout.read(self.CHUNK_SIZE)
 
     async def read_chunk(self):
-        """Read the remaining output of uploadpack, and forward it to the http client
-        """
+        """Read the remaining output of uploadpack, and forward it to the http client"""
         self.firstchunk, firstchunk = None, self.firstchunk
         if firstchunk:
             return firstchunk
@@ -271,8 +273,7 @@ class StdOutReader:
 
 
 class UploadPackHandler:
-    """Unit testable upload-pack handler which automatically call git fetch to update the local copy
-    """
+    """Unit testable upload-pack handler which automatically call git fetch to update the local copy"""
 
     def __init__(self, path, writer: AbstractStreamWriter, auth, upstream, sema=None):
         self.upstream = upstream
@@ -383,8 +384,7 @@ class UploadPackHandler:
         log.warning("Run with cache failed")
 
     async def run(self, input: bytes):
-        """Run the whole process of upload pack, including sending the result to the writer
-        """
+        """Run the whole process of upload pack, including sending the result to the writer"""
         parsed_input = UploadPackInputParser(input)
         dict_input = parsed_input.as_dict.copy()
         log.debug("parsed input", input_details=dict_input)

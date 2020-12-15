@@ -159,7 +159,8 @@ def enable_console_logs():
         cache_logger_on_first_use=True,
     )
     formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.dev.ConsoleRenderer(), foreign_pre_chain=shared_processors,
+        processor=structlog.dev.ConsoleRenderer(),
+        foreign_pre_chain=shared_processors,
     )
 
     rlog = logging.getLogger()

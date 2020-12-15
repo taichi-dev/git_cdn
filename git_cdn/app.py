@@ -72,7 +72,7 @@ def fix_headers(headers):
 
 def check_auth(request):
     """This method provides a quick way to redirect to correct path and force
-        git to authenticate"""
+    git to authenticate"""
     spl = request.path_qs.split("/")
     if "info" in spl:
         # early redirect paths not ending with git (we avoid a few round trip to the far server)
@@ -89,7 +89,7 @@ def check_auth(request):
 
 def redirect_browsers(request, upstream):
     """This method provides a quick way to redirect to correct path and force
-        git to authenticate"""
+    git to authenticate"""
     ua = request.headers.get("User-Agent", "git").lower()
     # "git" will also match "JGit/4.3.0.201604071810-r" UA (matlab is using that)
     if "git" not in ua and "aiohttp" not in ua:
@@ -296,8 +296,7 @@ class GitCDN:
         return response
 
     async def _routing_handler(self, request):
-        """ We implement the routing manually because iohttp routing may not handle the requirements
-        """
+        """We implement the routing manually because iohttp routing may not handle the requirements"""
         path = request.path
         method = request.method.lower()
         git_path = find_gitpath(request.path)
@@ -464,7 +463,11 @@ class GitCDN:
 
             # run git-upload-pack
             proc = UploadPackHandler(
-                path, writer, auth=creds, upstream=self.upstream, sema=self.sema,
+                path,
+                writer,
+                auth=creds,
+                upstream=self.upstream,
+                sema=self.sema,
             )
             await proc.run(content)
         except CancelledError:

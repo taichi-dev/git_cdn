@@ -21,7 +21,7 @@ CHUNK_SIZE = 64 * 1024
 
 
 class PackCache:
-    """ Upload pack cache
+    """Upload pack cache
     when using a local cached repository, git upload-pack will recompress the whole repository,
     which is very CPU intensive.
     cache the binary pack content to disk
