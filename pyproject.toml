@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "git_cdn"
+version = "1.7.2"
+description = "a Content Delivery Network for git"
+authors = ["Nestor team <list.rsl_releng_admin@renault.com>"]
+classifiers = [
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+]
+homepage = "https://gitlab.com/grouperenault/git_cdn"
+
+[tool.poetry.dependencies]
+python = ">=3.7"
+structlog = "*"
+aiohttp = ">3.0.0"
+gunicorn = "*"
+yarl = "<=1.0.0"
+sentry-sdk = "*"
+ujson = "*"
+
+
+[tool.poetry.dev-dependencies]
+black = ">=19.10b0"
+isort = "*"
+colorama = "*"
+pytest = "*"
+pylint = "*"
+pytest-mock = "*"
+pytest-sugar = "*"
+rope = "*"
+aiohttp-devtools = "*"
+pytest-cov = "*"
+pytest-asyncio = "*"
+pytest-aiohttp = "*"
+pytest-benchmark = "*"
+typed-ast = "*"
+mock = "*"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
