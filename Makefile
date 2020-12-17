@@ -90,7 +90,7 @@ push: githook
 
 run: VERSION_FILE
 	. ./tosource && \
-	@$(POETRY) run gunicorn -c config.py git_cdn.app:app --workers=4
+	$(POETRY) run gunicorn -c config.py git_cdn.app:app --workers=4
 
 
 # aliases to gracefully handle typos on poor dev's terminal
