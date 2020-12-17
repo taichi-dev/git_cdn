@@ -1,5 +1,6 @@
 stages:
     - test
+    - docker
     - integration-test
     - publish
 default:
@@ -26,6 +27,23 @@ checks:3.7:
     script:
         - make dev
         - make check
+
+build:
+    extends: .only
+    stage: test
+    variables:
+        WORKING_DIRECTORY: /tmp
+    script:
+        - git --version
+        - git lfs --version
+        - git lfs install
+        - make dev
+        - make build
+    artifacts:
+        paths:
+            - dist/
+            - Dockerfile
+
 tests:
     extends: .only
     stage: test
@@ -37,7 +55,7 @@ tests:
         - git lfs install
         - make dev
         - make test
-        - make build
+
 markdownlint:
     stage: test
     image: ruby
@@ -67,12 +85,18 @@ coverage:
 
     coverage: '/^TOTAL.*\s+(\d+\%)$/'
 
-build:
+dockerbuild:
     extends: .only
     image: docker:19.03.8
-    stage: test
+    stage: docker
+    variables:
+        GIT_STRATEGY: none
+    needs: [build]
+    dependencies: [build]
+
     services:
         - docker:19.03.8-dind
+    before_script: [] # remove default
     script:
         - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
         - docker build -t $CI_REGISTRY/$CI_PROJECT_PATH:i-$CI_COMMIT_SHA-$CI_PIPELINE_ID .
