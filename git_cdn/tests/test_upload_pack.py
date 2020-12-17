@@ -195,7 +195,12 @@ async def test_shallow(tmpdir, loop):
 
 async def test_shallow_trunc(tmpdir, loop):
     writer = FakeStreamWriter()
-    proc = UploadPackHandler(MANIFEST_PATH, writer, CREDS, upstream=GITSERVER_UPSTREAM,)
+    proc = UploadPackHandler(
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        upstream=GITSERVER_UPSTREAM,
+    )
 
     await proc.run(SHALLOW_INPUT_TRUNC)
     assert writer.output == b"0000"
@@ -211,7 +216,12 @@ async def test_shallow_trunc2(tmpdir, loop):
     assert full
     writer = FakeStreamWriter()
     # give corrupted input to upload-pack
-    proc = UploadPackHandler(MANIFEST_PATH, writer, CREDS, upstream="fake_url",)
+    proc = UploadPackHandler(
+        MANIFEST_PATH,
+        writer,
+        CREDS,
+        upstream="fake_url",
+    )
     await proc.run(SHALLOW_INPUT_TRUNC[:-1])
     assert writer.output == b""
 

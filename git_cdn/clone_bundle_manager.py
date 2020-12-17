@@ -25,8 +25,7 @@ http_session = None
 
 
 def new_session():
-    """automatically create a shared session for http proxying
-    """
+    """automatically create a shared session for http proxying"""
     global http_session
 
     conn = TCPConnector(

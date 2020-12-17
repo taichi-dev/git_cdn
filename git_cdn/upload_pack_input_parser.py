@@ -42,17 +42,17 @@ GIT_CAPS = {
 class UploadPackInputParser:
     """implements gramar as per spec in http-protocol.txt:
 
-        compute_request   =  want_list
-                             have_list
-                             request_end
-        request_end       =  "0000" / "done"
-        want_list         =  PKT-LINE(want SP cap_list LF)
-                    *(want_pkt)
-        want_pkt          =  PKT-LINE(want LF)
-        want              =  "want" SP id
-        cap_list          =  capability *(SP capability)
+    compute_request   =  want_list
+                         have_list
+                         request_end
+    request_end       =  "0000" / "done"
+    want_list         =  PKT-LINE(want SP cap_list LF)
+                *(want_pkt)
+    want_pkt          =  PKT-LINE(want LF)
+    want              =  "want" SP id
+    cap_list          =  capability *(SP capability)
 
-        have_list         =  *PKT-LINE("have" SP id LF)
+    have_list         =  *PKT-LINE("have" SP id LF)
     """
 
     def __init__(self, input):

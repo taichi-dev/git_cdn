@@ -12,8 +12,10 @@ default:
         changes:
             - "*.py"
             - "git_cdn/**/*"
-            - "Pipfile*"
+            - "poetry.*"
+            - "pyproject*"
             - "Makefile*"
+            - "Dockerfile"
             - "*.yml"
             - ".*"
 checks:3.7:
@@ -34,8 +36,8 @@ tests:
         - git lfs --version
         - git lfs install
         - make dev
-        - make test-v
-        - make dists
+        - make test
+        - make build
 markdownlint:
     stage: test
     image: ruby
@@ -54,7 +56,7 @@ coverage:
         - git lfs --version
         - git lfs install
         - make dev
-        - pipenv run pip install coveralls
+        - poetry run pip install coveralls
         - make test-coverage
         # - pipenv run coveralls
     artifacts:
