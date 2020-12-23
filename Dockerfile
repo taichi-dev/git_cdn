@@ -13,6 +13,7 @@ RUN apk add --update --no-cache --virtual .build-deps alpine-sdk musl-dev libffi
 # Configure git for git-cdn
     git config --global pack.threads 4
 
+ADD config.py /app/
 
 # entrypoint contains stuff that you shouldn't want to customize
 # starts gunicorn

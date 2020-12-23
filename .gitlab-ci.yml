@@ -43,6 +43,7 @@ build:
         paths:
             - dist/
             - Dockerfile
+            - config.py
 
 tests:
     extends: .only
