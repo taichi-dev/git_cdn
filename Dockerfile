@@ -1,16 +1,18 @@
 FROM python:3.7-alpine
 
 WORKDIR     /app
-ADD         dist/*.whl /app/
+
 # Only install dependencies
 RUN  apk --no-cache add make git libstdc++ && \
-    apk add --update --no-cache libffi curl openssl &&\
-    apk add --update --no-cache --virtual .build-deps alpine-sdk musl-dev libffi-dev openssl-dev &&\
-    python -m pip install /app/*.whl &&\
-    apk del .build-deps
+    apk add --update --no-cache libffi curl openssl
 
+ADD dist/*.whl /app/
+RUN apk add --update --no-cache --virtual .build-deps alpine-sdk musl-dev libffi-dev openssl-dev &&\
+    python -m pip install /app/*.whl && \
+    apk del .build-deps && \
 # Configure git for git-cdn
-RUN git config --global pack.threads 4
+    git config --global pack.threads 4
+
 
 # entrypoint contains stuff that you shouldn't want to customize
 # starts gunicorn
