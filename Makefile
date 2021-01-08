@@ -10,7 +10,7 @@ GITCDN_VERSION := $$(git describe --tags HEAD)
 GITCDN_LOCALCHANGE := $$(if [ "$$(git status -s -uno)" ]; then echo "~"; fi)
 VERSION_FILE := git_cdn/version.py
 
-all: dev style checks dists test
+all: dev style checks test
 style: isort black
 dev: poetry-install install
 sc: style checks

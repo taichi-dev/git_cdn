@@ -1,13 +1,13 @@
 # Standard Library
+import asyncio
+import concurrent
 import fcntl
 import os
-import uuid
 from datetime import datetime
 from time import time
 
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
-from structlog.contextvars import clear_contextvars
 
 # Third Party Libraries
 from git_cdn.aiolock import lock
@@ -15,6 +15,7 @@ from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.util import get_subdir
 
 log = getLogger()
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # chunk size when reading the cache file
 CHUNK_SIZE = 64 * 1024
@@ -101,18 +102,41 @@ class PackCache:
                 os.unlink(self.filename)
 
 
+class FileLock:
+    def __init__(self, filename):
+        self.filename = filename
+        self._f = None
+
+    def exists(self):
+        return os.path.exists(self.filename)
+
+    def mtime(self):
+        return os.stat(self.filename).st_mtime
+
+    def __enter__(self):
+        self._f = open(self.filename, "a+")
+        fcntl.flock(self._f.fileno(), fcntl.LOCK_EX)
+        os.utime(self.filename, None)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        fcntl.flock(self._f.fileno(), fcntl.LOCK_UN)
+        self._f.close()
+        self._f = None
+
+    def delete(self):
+        os.unlink(self.filename)
+
+
 class PackCacheCleaner:
     def __init__(self):
         self.cache_dir = get_subdir("pack_cache")
         self.max_size = os.getenv("PACK_CACHE_SIZE_GB", "20")
         # Use cache size minus 512MB, to avoid exceeding the cache size too much.
         self.max_size = (int(self.max_size) * 1024 - 512) * 1024 * 1024
-        self.lockfile = os.path.join(self.cache_dir, "clean.lock")
+        self.lock = FileLock(os.path.join(self.cache_dir, "clean.lock"))
 
-    def lock(self):
-        return lock(self.lockfile, mode=fcntl.LOCK_EX)
-
-    async def _clean(self):
+    def _clean_task(self):
         # When using os.scandir, DirEntry.stat() are cached (on Linux) and calling it
         # doesn't go through syscall
         subdirs = [d for d in os.scandir(self.cache_dir) if d.is_dir()]
@@ -150,24 +174,21 @@ class PackCacheCleaner:
             cache_duration=cache_duration.total_seconds(),
         )
         for f in to_delete:
-            cache = PackCache(f.name)
-            async with cache.write_lock():
+            with FileLock(f.path) as flock:
                 log.debug("delete", hash=f.name, rm_size=f.stat().st_size)
-                cache.delete()
+                flock.delete()
         return len(to_delete)
 
+    def clean_task(self):
+        with self.lock:
+            return self._clean_task()
+
     async def clean(self):
-        # cleanup is done in another task, so change the ctx uuid
-        clear_contextvars()
-        bind_contextvars(ctx={"uuid": str(uuid.uuid4())})
         # only clean once per minute
-        if (
-            os.path.exists(self.lockfile)
-            and (time() - os.stat(self.lockfile).st_mtime) < 60
-        ):
+        if self.lock.exists() and time() - self.lock.mtime() < 60:
             log.debug("No need to cleanup")
             return
+        # This is a background task, so do not await it
+        task = asyncio.get_event_loop().run_in_executor(executor, self.clean_task)
 
-        async with self.lock():
-            os.utime(self.lockfile, None)
-            return await self._clean()
+        return task
