@@ -9,6 +9,8 @@ import time
 import urllib.parse
 import uuid
 from concurrent.futures import CancelledError
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version
 
 # Third Party Libraries
 import aiohttp
@@ -34,13 +36,10 @@ from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.util import backoff
 from git_cdn.util import check_path
 
-GITCDN_VERSION = None
 try:
-    from git_cdn.version import (
-        GITCDN_VERSION,  # pylint: disable=import-outside-toplevel
-    )
-except ImportError:
-    pass
+    GITCDN_VERSION = version("git_cdn")
+except PackageNotFoundError:
+    GITCDN_VERSION = "unknown"
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:

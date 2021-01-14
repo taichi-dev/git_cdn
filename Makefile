@@ -10,7 +10,6 @@ POETRY_VERSION:="==1.1.0"
 # So convert v1.7.1-55-af3454 to v1.7.1+55.af3454
 GITCDN_VERSION := $$(git describe --tags HEAD | sed s/\-/\+/ | sed s/\-/\./)
 GITCDN_LOCALCHANGE := $$(if [ "$$(git status -s -uno)" ]; then echo ".dirty"; fi)
-VERSION_FILE := git_cdn/version.py
 
 all: dev style checks test
 style: isort black
@@ -50,15 +49,8 @@ black-check:
 pylint:
 	@$(POETRY) run pylint --rcfile=.pylintrc --output-format=colorized $(MODULE)
 
-VERSION_FILE: set-version
-
 set-version:
-	@echo "GITCDN_VERSION = '$(GITCDN_VERSION)$(GITCDN_LOCALCHANGE)'" > $(VERSION_FILE)
 	$(POETRY) version $(GITCDN_VERSION)$(GITCDN_LOCALCHANGE)
-
-clean-version:
-	rm -f $(VERSION_FILE)
-
 
 test:
 	@$(POETRY) run pytest --strict $(MODULE)
