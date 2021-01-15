@@ -10,7 +10,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
 ]
@@ -23,7 +22,7 @@ include = [{path = 'git_cdn/tests/**/*', format = 'sdist'},
             {path = 'git_cdn/tests/*', format = 'sdist'}]
 
 [tool.poetry.dependencies]
-python = ">=3.7"
+python = ">=3.8"
 structlog = "*"
 aiohttp = ">3.0.0"
 gunicorn = "*"

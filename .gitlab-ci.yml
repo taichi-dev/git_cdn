@@ -4,7 +4,7 @@ stages:
     - integration-test
     - publish
 default:
-    image: python:3.7
+    image: python:3.8
     before_script:
         - export PATH=$HOME/.local/bin:$PATH
         - apt-get update && apt-get install -y git-lfs
@@ -19,7 +19,7 @@ default:
             - "Dockerfile"
             - "*.yml"
             - ".*"
-checks:3.7:
+checks:3.8:
     extends: .only
     stage: test
     variables:
@@ -135,7 +135,7 @@ pages:
     artifacts:
         paths:
             - public
-    image: python:3.7
+    image: python:3.8
     script:
         - mkdir -p public/coverage
         - mv -v coverage_html/* public/coverage

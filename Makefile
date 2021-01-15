@@ -6,9 +6,10 @@ POETRY:=/usr/bin/env python3 -m poetry
 PIP_VERSION:="==20.3.3"
 POETRY_VERSION:="==1.1.0"
 
-GITCDN_VERSION := $$(git describe --tags HEAD)
-GITCDN_LOCALCHANGE := $$(if [ "$$(git status -s -uno)" ]; then echo "~"; fi)
-VERSION_FILE := git_cdn/version.py
+# poetry enforce semver PEP 440 https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
+# So convert v1.7.1-55-af3454 to v1.7.1+55.af3454
+GITCDN_VERSION := $$(git describe --tags HEAD | sed s/\-/\+/ | sed s/\-/\./)
+GITCDN_LOCALCHANGE := $$(if [ "$$(git status -s -uno)" ]; then echo ".dirty"; fi)
 
 all: dev style checks test
 style: isort black
@@ -48,15 +49,8 @@ black-check:
 pylint:
 	@$(POETRY) run pylint --rcfile=.pylintrc --output-format=colorized $(MODULE)
 
-VERSION_FILE: set-version
-
 set-version:
-	@echo "GITCDN_VERSION = '$(GITCDN_VERSION)$(GITCDN_LOCALCHANGE)'" > $(VERSION_FILE)
-	$(POETRY) version $(VERSION)
-
-clean-version:
-	rm -f $(VERSION_FILE)
-
+	$(POETRY) version $(GITCDN_VERSION)$(GITCDN_LOCALCHANGE)
 
 test:
 	@$(POETRY) run pytest --strict $(MODULE)
@@ -88,7 +82,7 @@ push: githook
 	git push origin --all
 	git push origin --tags
 
-run: VERSION_FILE
+run:
 	. ./tosource && \
 	$(POETRY) run gunicorn -c config.py git_cdn.app:app --workers=4
 
