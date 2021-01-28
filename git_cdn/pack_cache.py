@@ -183,7 +183,7 @@ class PackCacheCleaner:
         with self.lock:
             return self._clean_task()
 
-    async def clean(self):
+    def clean(self):
         # only clean once per minute
         if self.lock.exists() and time() - self.lock.mtime() < 60:
             log.debug("No need to cleanup")

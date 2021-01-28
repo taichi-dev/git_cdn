@@ -55,13 +55,11 @@ async def test_pack_cache_clean(tmpworkdir, loop):
     await pc1.send_pack(FakeStreamWriter())
 
     cleaner = PackCacheCleaner()
-    p = await cleaner.clean()
-    assert await p == 0
+    assert cleaner.clean_task() == 0
     cleaner.max_size = 3000000
     fake_time = (time() - 120, time() - 120)
     os.utime(cleaner.lock.filename, fake_time)
-    p = await cleaner.clean()
-    assert await p == 1
+    assert cleaner.clean_task() == 1
     assert pc1.exists()
     assert not pc2.exists()
     assert pc3.exists()
