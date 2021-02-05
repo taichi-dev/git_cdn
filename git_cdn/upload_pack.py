@@ -373,8 +373,8 @@ class UploadPackHandler:
             # In case 2 threads race for write lock, check again if it has been added in the cache
             if not self.pcache.exists():
                 await self.execute(parsed_input)
-                # ensure cache size doesn't grow in another coroutine
-                asyncio.create_task(cache_cleaner.clean())
+                # ensure cache size doesn't grow in a background task
+                cache_cleaner.clean()
 
         async with self.pcache.read_lock():
             if self.pcache.exists():
