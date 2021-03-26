@@ -4,7 +4,7 @@ stages:
     - integration-test
     - publish
 default:
-    image: python:3.8
+    image: python:3.9
     before_script:
         - export PATH=$HOME/.local/bin:$PATH
         - apt-get update && apt-get install -y git-lfs
@@ -19,7 +19,7 @@ default:
             - "Dockerfile"
             - "*.yml"
             - ".*"
-checks:3.8:
+checks:3.9:
     extends: .only
     stage: test
     variables:
@@ -54,6 +54,7 @@ tests:
         - git --version
         - git lfs --version
         - git lfs install
+        - git config --global uploadpack.allowfilter true
         - make dev
         - make test
 
@@ -74,6 +75,7 @@ coverage:
         - git --version
         - git lfs --version
         - git lfs install
+        - git config --global uploadpack.allowfilter true
         - make dev
         - poetry run pip install coveralls
         - make test-coverage
@@ -135,7 +137,7 @@ pages:
     artifacts:
         paths:
             - public
-    image: python:3.8
+    image: python:3.9
     script:
         - mkdir -p public/coverage
         - mv -v coverage_html/* public/coverage
