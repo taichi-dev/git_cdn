@@ -65,10 +65,13 @@ class UploadPackInputParser:
         self.depth_lines = []
         self.done = False
         self.parse_error = True
+        self.filter = False
         try:
             self.parser = iter(PacketLineParser(input))
             self.parse_header()
             self.parse_lists()
+            if b"filter" in self.caps:
+                self.filter = True
             hash = hashlib.sha256()
             hash.update(b"caps")
             for i in sorted(self.caps):
@@ -98,6 +101,7 @@ class UploadPackInputParser:
                 "parse_error": False,
                 "depth": self.depth,
                 "done": self.done,
+                "filter": self.filter,
             }
             self.parse_error = False
         except Exception:
@@ -174,6 +178,8 @@ class UploadPackInputParser:
         if len(self.haves) != 0 or not self.done:
             return False
         if b"side-band" not in self.caps and b"side-band-64k" not in self.caps:
+            return False
+        if self.filter:
             return False
         multi = os.getenv("PACK_CACHE_MULTI", "false").lower() in ["true", "1"]
         if not multi and len(self.wants) > 1:

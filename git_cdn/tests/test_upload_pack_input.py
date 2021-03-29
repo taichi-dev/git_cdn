@@ -91,6 +91,7 @@ def test_parse_upload_pack_input():
         "depth": False,
         "parse_error": False,
         "done": True,
+        "filter": False,
     }
     BASE_HASH = "a82bd2107a5a0d8eb001000874a3e1ae1721a9797b5e95ce7522c27ebed0cf23"
     assert parser.hash == BASE_HASH
@@ -139,6 +140,7 @@ def test_parse_upload_pack_input_with_have():
         "parse_error": False,
         "depth": True,
         "done": True,
+        "filter": False,
     }
     BASE_HASH = "56a6d15154546d03da99bd83b5483b260decffddaf6dd00b41f3e063c45dc021"
     assert parser.hash == BASE_HASH
@@ -161,6 +163,7 @@ def test_parse_upload_pack_all_input(upload_pack_inputs):
             "single_branch": ANYBOOL,
             "parse_error": ANYBOOL,
             "done": ANYBOOL,
+            "filter": ANYBOOL,
         }
 
 

@@ -165,6 +165,25 @@ async def test_basic_shallow(make_client, loop, tmpdir, app, header_for_git):
     assert (await proc.wait()) == 0
 
 
+async def test_basic_filter(make_client, loop, tmpdir, app, header_for_git):
+    assert loop
+
+    app = app()
+    client = await make_client(app)
+    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    tmpdir.chdir()
+    proc = await asyncio.create_subprocess_exec(
+        "git",
+        *header_for_git,
+        "clone",
+        "--depth=1",
+        "--filter=blob:none",
+        url,
+        stdin=asyncio.subprocess.PIPE,
+    )
+    assert (await proc.wait()) == 0
+
+
 async def test_git_lfs(make_client, loop, tmpdir, app, monkeypatch, header_for_git):
     assert loop
 
