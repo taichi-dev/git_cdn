@@ -192,8 +192,8 @@ class RepoCache:
 
     async def clone(self):
         for timeout in backoff(BACKOFF_START, BACKOFF_COUNT):
-            async with lock(self.bundle_lock, mode=fcntl.LOCK_SH):
-                if os.path.exists(self.bundle_file):
+            if os.path.exists(self.bundle_file):
+                async with lock(self.bundle_lock, mode=fcntl.LOCK_SH):
                     # try to clone the bundle file instead
                     _, stderr, returncode = await self.run_git(
                         "clone", "--bare", self.bundle_file, self.directory
