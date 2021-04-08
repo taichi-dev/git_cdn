@@ -72,15 +72,17 @@ async def ensure_proc_terminated(
         return
     if await wait_proc(proc, cmd, timeout):
         return
-    log.error("process didn't exit, terminate it", cmd=cmd, timeout=timeout)
+    log.error(
+        "process didn't exit, terminate it", cmd=cmd, pid=proc.pid, timeout=timeout
+    )
     proc.terminate()
     if await wait_proc(proc, cmd, KILLED_PROCESS_TIMEOUT):
         return
-    log.error("process didn't exit, kill it", cmd=cmd, timeout=timeout)
+    log.error("process didn't exit, kill it", cmd=cmd, pid=proc.pid, timeout=timeout)
     proc.kill()
     if await wait_proc(proc, cmd, KILLED_PROCESS_TIMEOUT):
         return
-    log.error("Process didn't exit after kill", cmd=cmd, timeout=timeout)
+    log.error("Process didn't exit after kill", cmd=cmd, pid=proc.pid, timeout=timeout)
 
 
 def input_to_ctx(dict_input):
@@ -167,6 +169,7 @@ class RepoCache:
             stdout_data=stdout_data.decode(),
             stderr_data=stderr_data.decode(),
             rc=fetch_proc.returncode,
+            pid=fetch_proc.pid,
             cmd_duration=time.time() - t1,
         )
         return stdout_data, stderr_data, fetch_proc.returncode
@@ -296,7 +299,9 @@ class UploadPackHandler:
         except BrokenPipeError:
             # This occur with large input, and upload pack return an early error
             # like "not our ref"
-            log.warning("Ignoring BrokenPipeError, while writing to stdin")
+            log.warning(
+                "Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid
+            )
         finally:
             proc.stdin.close()
 
@@ -348,7 +353,7 @@ class UploadPackHandler:
             # or 2s if not caching, as the process is useless now
             timeout = 10 * 60 if self.pcache else GIT_PROCESS_WAIT_TIMEOUT
             await ensure_proc_terminated(proc, "git upload-pack", timeout)
-            log.debug("Upload pack done")
+            log.debug("Upload pack done", pid=proc.pid)
 
     async def write_pack_error(self, error: str):
         log.error("Upload pack, sending error to client", pack_error=error)
