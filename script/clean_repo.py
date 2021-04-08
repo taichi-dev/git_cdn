@@ -31,30 +31,32 @@ def dir_size(directory):
 class GitRepo:
     def __init__(self, directory):
         self.lockfile = directory.path + ".lock"
-        self.directory = directory
-        self._mtime = None
+        self.directory = directory.path
+        self.head = os.path.join(self.directory, "HEAD")
+        self._atime = None
         self._size = None
 
     def __str__(self):
-        return f"{self.directory.path:100}\t{self.age} days"
+        return f"{self.directory:100}\t{self.age} days"
 
     def __repr__(self):
         return self.__str__()
 
     @property
-    def mtime(self):
-        if self._mtime is None:
-            self._mtime = datetime.fromtimestamp(self.directory.stat().st_mtime)
-        return self._mtime
+    def atime(self):
+        if self._atime is None:
+            atime = os.stat(self.head).st_atime
+            self._atime = datetime.fromtimestamp(atime)
+        return self._atime
 
     @property
     def age(self):
-        return (NOW - self.mtime).days
+        return (NOW - self.atime).days
 
     @property
     def size(self):
         if self._size is None:
-            self._size = dir_size(self.directory.path)
+            self._size = dir_size(self.directory)
         return self._size
 
     @property
@@ -69,10 +71,10 @@ class GitRepo:
             print(s)
 
     def delete(self):
-        print(f"Delete {self.directory.path}", end="")
-        rmtree(self.directory.path, ignore_errors=True)
+        print(f"Delete {self.directory}", end="")
+        rmtree(self.directory, ignore_errors=True)
         try:
-            os.unlink(self.lockfile)
+            os.unlink(self.lockfile.path)
         except FileNotFoundError:
             pass
         print("\t\t[OK]")
@@ -90,11 +92,11 @@ def find_git_repo(s):
         yield g
 
 
-def mtime(g):
-    return g.mtime
+def atime(g):
+    return g.atime
 
 
-def clean_git():
+def clean_cdn_cache():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-s", "--size", help="display size of each git repository", action="store_true"
@@ -115,7 +117,7 @@ def clean_git():
     os.chdir(os.path.join(workdir, "git"))
     git_dirs = [g for g in find_git_repo(".") if g.age > args.older_than]
 
-    git_dirs.sort(key=mtime)
+    git_dirs.sort(key=atime)
 
     for g in git_dirs:
         g.print(args.size)
@@ -130,4 +132,4 @@ def clean_git():
 
 
 if __name__ == "__main__":
-    clean_git()
+    clean_cdn_cache()
