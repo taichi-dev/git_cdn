@@ -26,7 +26,6 @@ python = ">=3.8"
 structlog = "*"
 aiohttp = ">3.0.0"
 gunicorn = "*"
-yarl = "<=1.0.0"
 sentry-sdk = "*"
 ujson = "*"
 
@@ -47,6 +46,7 @@ pytest-aiohttp = "*"
 pytest-benchmark = "*"
 typed-ast = "*"
 mock = "*"
+yarl = "*"
 
 [build-system]
 requires = ["poetry>=0.12"]
