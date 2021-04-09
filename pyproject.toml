@@ -16,7 +16,8 @@ classifiers = [
 homepage = "https://gitlab.com/grouperenault/git_cdn"
 
 packages = [
-	{ include = 'git_cdn/*.py' },
+    { include = 'git_cdn/*.py' },
+    { include = 'script/*.py'},
 ]
 include = [{path = 'git_cdn/tests/**/*', format = 'sdist'},
             {path = 'git_cdn/tests/*', format = 'sdist'}]
