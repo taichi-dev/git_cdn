@@ -197,13 +197,17 @@ class RepoCache:
                     # didn't work? erase that file and retry the clone
                     os.unlink(self.bundle_file)
 
-            rm_proc = await asyncio.create_subprocess_exec(
-                "rm",
-                "-rf",
-                self.directory,
-                stdin=asyncio.subprocess.PIPE,
-            )
-            await ensure_proc_terminated(rm_proc, "rm", timeout=3600)
+            if self.exists():
+                rm_proc = await asyncio.create_subprocess_exec(
+                    "rm",
+                    "-rf",
+                    self.directory,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await ensure_proc_terminated(
+                    rm_proc, f"rm -rf {self.directory}", timeout=3600
+                )
             _, stderr, returncode = await self.run_git(
                 "clone", "--bare", self.url, self.directory
             )
