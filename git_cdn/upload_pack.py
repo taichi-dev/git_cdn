@@ -139,24 +139,15 @@ class RepoCache:
         """
         t1 = time.time()
 
-        def cleanup(a):
-            if isinstance(a, bytes):
-                a = a.decode()
-            a = a.replace(self.auth, "xx")
-            return a
-
-        cleaned_args = [cleanup(a) for a in args]
-
-        log.debug("git_cmd start", cmd=cleaned_args)
+        log.debug("git_cmd start", cmd=args)
         fetch_proc = await asyncio.create_subprocess_exec(
             "git",
             *args,
-            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         stdout_data, stderr_data = await fetch_proc.communicate()
-        await ensure_proc_terminated(fetch_proc, "git " + " ".join(cleaned_args))
+        await ensure_proc_terminated(fetch_proc, str(args))
         # prevent logging of the creds
         stdout_data = stdout_data.replace(self.auth.encode(), b"<XX>")
         stderr_data = stderr_data.replace(self.auth.encode(), b"<XX>")
@@ -165,7 +156,7 @@ class RepoCache:
 
         log.debug(
             "git_cmd done",
-            cmd=cleaned_args,
+            cmd=args,
             stdout_data=stdout_data.decode(),
             stderr_data=stderr_data.decode(),
             rc=fetch_proc.returncode,

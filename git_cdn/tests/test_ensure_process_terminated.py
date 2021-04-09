@@ -34,7 +34,7 @@ SHELLCODE3 = textwrap.dedent(
 
 async def test_basic(tmpdir, loop):
     proc = await asyncio.create_subprocess_exec(
-        "bash", "-c", SHELLCODE1, stdin=asyncio.subprocess.PIPE
+        "bash", "-c", SHELLCODE1, stdout=asyncio.subprocess.PIPE
     )
     await ensure_proc_terminated(proc, "bash", 0.2)
 
@@ -42,7 +42,7 @@ async def test_basic(tmpdir, loop):
 async def test_term(tmpdir, loop):
     start_time = time()
     proc = await asyncio.create_subprocess_exec(
-        "bash", "-c", SHELLCODE2, stdin=asyncio.subprocess.PIPE
+        "bash", "-c", SHELLCODE2, stdout=asyncio.subprocess.PIPE
     )
     await ensure_proc_terminated(proc, "bash", 0.2)
     elapsed = time() - start_time
@@ -52,7 +52,7 @@ async def test_term(tmpdir, loop):
 async def test_kill(tmpdir, loop):
     start_time = time()
     proc = await asyncio.create_subprocess_exec(
-        "bash", "-c", SHELLCODE3, stdin=asyncio.subprocess.PIPE
+        "bash", "-c", SHELLCODE3, stdout=asyncio.subprocess.PIPE
     )
     await ensure_proc_terminated(proc, "bash", 0.2)
     elapsed = time() - start_time
