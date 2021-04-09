@@ -72,15 +72,17 @@ async def ensure_proc_terminated(
         return
     if await wait_proc(proc, cmd, timeout):
         return
-    log.error("process didn't exit, terminate it", cmd=cmd, timeout=timeout)
+    log.error(
+        "process didn't exit, terminate it", cmd=cmd, pid=proc.pid, timeout=timeout
+    )
     proc.terminate()
     if await wait_proc(proc, cmd, KILLED_PROCESS_TIMEOUT):
         return
-    log.error("process didn't exit, kill it", cmd=cmd, timeout=timeout)
+    log.error("process didn't exit, kill it", cmd=cmd, pid=proc.pid, timeout=timeout)
     proc.kill()
     if await wait_proc(proc, cmd, KILLED_PROCESS_TIMEOUT):
         return
-    log.error("Process didn't exit after kill", cmd=cmd, timeout=timeout)
+    log.error("Process didn't exit after kill", cmd=cmd, pid=proc.pid, timeout=timeout)
 
 
 def input_to_ctx(dict_input):
@@ -137,24 +139,15 @@ class RepoCache:
         """
         t1 = time.time()
 
-        def cleanup(a):
-            if isinstance(a, bytes):
-                a = a.decode()
-            a = a.replace(self.auth, "xx")
-            return a
-
-        cleaned_args = [cleanup(a) for a in args]
-
-        log.debug("git_cmd start", cmd=cleaned_args)
+        log.debug("git_cmd start", cmd=args)
         fetch_proc = await asyncio.create_subprocess_exec(
             "git",
             *args,
-            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         stdout_data, stderr_data = await fetch_proc.communicate()
-        await ensure_proc_terminated(fetch_proc, "git " + " ".join(cleaned_args))
+        await ensure_proc_terminated(fetch_proc, str(args))
         # prevent logging of the creds
         stdout_data = stdout_data.replace(self.auth.encode(), b"<XX>")
         stderr_data = stderr_data.replace(self.auth.encode(), b"<XX>")
@@ -163,10 +156,11 @@ class RepoCache:
 
         log.debug(
             "git_cmd done",
-            cmd=cleaned_args,
+            cmd=args,
             stdout_data=stdout_data.decode(),
             stderr_data=stderr_data.decode(),
             rc=fetch_proc.returncode,
+            pid=fetch_proc.pid,
             cmd_duration=time.time() - t1,
         )
         return stdout_data, stderr_data, fetch_proc.returncode
@@ -192,8 +186,8 @@ class RepoCache:
 
     async def clone(self):
         for timeout in backoff(BACKOFF_START, BACKOFF_COUNT):
-            async with lock(self.bundle_lock, mode=fcntl.LOCK_SH):
-                if os.path.exists(self.bundle_file):
+            if os.path.exists(self.bundle_file):
+                async with lock(self.bundle_lock, mode=fcntl.LOCK_SH):
                     # try to clone the bundle file instead
                     _, stderr, returncode = await self.run_git(
                         "clone", "--bare", self.bundle_file, self.directory
@@ -203,13 +197,17 @@ class RepoCache:
                     # didn't work? erase that file and retry the clone
                     os.unlink(self.bundle_file)
 
-            rm_proc = await asyncio.create_subprocess_exec(
-                "rm",
-                "-rf",
-                self.directory,
-                stdin=asyncio.subprocess.PIPE,
-            )
-            await ensure_proc_terminated(rm_proc, "rm", timeout=3600)
+            if self.exists():
+                rm_proc = await asyncio.create_subprocess_exec(
+                    "rm",
+                    "-rf",
+                    self.directory,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await ensure_proc_terminated(
+                    rm_proc, f"rm -rf {self.directory}", timeout=3600
+                )
             _, stderr, returncode = await self.run_git(
                 "clone", "--bare", self.url, self.directory
             )
@@ -296,7 +294,9 @@ class UploadPackHandler:
         except BrokenPipeError:
             # This occur with large input, and upload pack return an early error
             # like "not our ref"
-            log.warning("Ignoring BrokenPipeError, while writing to stdin")
+            log.warning(
+                "Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid
+            )
         finally:
             proc.stdin.close()
 
@@ -348,7 +348,7 @@ class UploadPackHandler:
             # or 2s if not caching, as the process is useless now
             timeout = 10 * 60 if self.pcache else GIT_PROCESS_WAIT_TIMEOUT
             await ensure_proc_terminated(proc, "git upload-pack", timeout)
-            log.debug("Upload pack done")
+            log.debug("Upload pack done", pid=proc.pid)
 
     async def write_pack_error(self, error: str):
         log.error("Upload pack, sending error to client", pack_error=error)

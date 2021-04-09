@@ -381,7 +381,9 @@ class GitCDN:
             ) as response:
                 resp_error = "n/a"
                 if response.status >= 400:
-                    resp_error = (await response.content.read()).decode()
+                    resp_error = (await response.content.read()).decode(
+                        errors="replace"
+                    )
                 log.debug(
                     "upstream returned",
                     upstream_url=upstream_url,
