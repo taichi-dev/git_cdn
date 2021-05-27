@@ -4,12 +4,9 @@ import fcntl
 import json
 import os
 import time
-from concurrent.futures._base import CancelledError
 from urllib.parse import urlparse
 
 # Third Party Libraries
-from aiohttp.client_exceptions import ClientPayloadError
-from aiohttp.web_exceptions import HTTPFound
 from aiohttp.web_exceptions import HTTPNotFound
 from structlog import getLogger
 
@@ -18,6 +15,59 @@ from git_cdn.util import check_path
 from git_cdn.util import get_subdir
 
 log = getLogger()
+
+
+class LFSCacheFile:
+    def __init__(self, href):
+        path = urlparse(href).path.lstrip("/")
+        check_path(path)
+        self.workdir = get_subdir("lfs")
+        self.hash = os.path.basename(path)
+        self.filename = os.path.join(
+            self.workdir, os.path.dirname(path), self.hash[:2], self.hash
+        )
+
+    def read_lock(self):
+        return lock(self.filename, mode=fcntl.LOCK_SH)
+
+    def write_lock(self):
+        return lock(self.filename, mode=fcntl.LOCK_EX)
+
+    def delete(self):
+        os.unlink(self.filename)
+
+    def exists(self):
+        return os.path.exists(self.filename) and os.stat(self.filename).st_size > 0
+
+    def utime(self):
+        os.utime(self.filename, None)
+
+    async def checksum(self):
+        p = await asyncio.create_subprocess_exec(
+            "sha256sum",
+            self.filename,
+            "-b",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+        )
+        (stdout_data, _) = await p.communicate()
+        cs = stdout_data.decode().split(" ")[0]
+        if cs != self.hash:
+            log.error(
+                "bad checksum",
+                lfs_filename=self.filename,
+                lfs_expected_checksum=self.hash,
+                lfs_actual_checksum=cs,
+            )
+        return cs == self.hash
+
+    async def is_in_cache(self):
+        if self.exists():
+            if await self.checksum():
+                self.utime()
+                log.info("LFS cache hit", lfs_hit=True)
+                return True
+        return False
 
 
 class LFSCacheManager:
@@ -35,13 +85,10 @@ class LFSCacheManager:
     once.
     """
 
-    MAX_DOWNLOAD_TRIES = 10
-
     def __init__(self, upstream_url, base_url, session):
         self.upstream_url = upstream_url
         self.base_url = base_url
         self.session = session
-        self.workdir = get_subdir("lfs")
 
     def set_base_url(self, base_url):
         self.base_url = base_url
@@ -64,124 +111,54 @@ class LFSCacheManager:
 
         return json.dumps(js).encode()
 
-    async def get_cache_path_for_href(self, href):
-        path = urlparse(href).path.lstrip("/")
-        check_path(path)
-        oldpath = os.path.join(self.workdir, path)
-        bn = os.path.basename(oldpath)
-        newdir = os.path.join(os.path.dirname(oldpath), bn[:2])
-        newpath = os.path.join(newdir, bn)
-        if os.path.exists(oldpath):
-            async with lock(newpath + ".lock", fcntl.LOCK_EX):
-                os.rename(oldpath, newpath)
-                os.unlink(oldpath + ".lock")
-        return newpath
-
-    async def _download_object_with_lock_one_try(self, retry, fn, href, headers):
+    async def download_object(self, cache_file, href, headers):
         t1 = time.time()
-        cancelled_error = None
         async with self.session.get(href, headers=headers) as request:
             ctx = {
-                "lfs_retry": retry,
                 "lfs_href": href,
                 "lfs_content_length": request.headers["Content-Length"],
             }
-            log.debug("downloading lfs file", **ctx)
+            log.debug("downloading lfs", **ctx)
             if request.status != 200:
                 raise HTTPNotFound(body=await request.content.read())
-            with open(fn, "wb") as f:
-                while True:
-                    try:
-                        chunk = await request.content.readany()
-                    # if download gets too long, git-lfs gets impatient and retries
-                    # 30s timeout.
-                    # never mind, we continue the download until the end
-                    # the lock mechanism will take effect, and the next retry will get
-                    # the result
-                    except CancelledError as e:
-                        log.info(
-                            "git-lfs client got impatient. Finishing anyway", **ctx
-                        )
-                        cancelled_error = e
-                        continue
-                    if not chunk:
-                        break
-                    f.write(chunk)
 
-            log.info(
-                "downloaded LFS object", lfs_download_duration=time.time() - t1, **ctx
-            )
+            with open(cache_file.filename, "wb") as f:
+                try:
+                    while chunk := await request.content.readany():
+                        f.write(chunk)
 
-            if cancelled_error is not None:
-                # we forward the cancel, as the connection has been closed by client
-                # response would raise another exception
-                raise cancelled_error  # pylint: disable=E0702
+                except Exception:
+                    # don't need to raise, if the file is not present, we will try again
+                    log.exception("Aborting lfs download", **ctx)
+                    cache_file.delete()
+                    return
 
-    async def download_object_with_lock(self, fn, href, headers):
-        for retry in range(self.MAX_DOWNLOAD_TRIES):
-            try:
-                await self._download_object_with_lock_one_try(retry, fn, href, headers)
-                if await self.checksum_lfs_file(fn):
-                    raise HTTPFound(fn)
-                os.unlink(fn)
-            except HTTPFound:
-                return
-            except (HTTPNotFound, CancelledError):  # pylint: disable=W0706
-                raise
-            except ClientPayloadError:
-                continue
-            except Exception:
-                log.exception(
-                    "exception while downloading lfs object",
-                    lfs_retry=retry,
-                    lfs_href=href,
+            if await cache_file.checksum():
+                log.info(
+                    "downloaded LFS", lfs_download_duration=time.time() - t1, **ctx
                 )
-        raise HTTPNotFound(
-            body=f"failed to get file after {self.MAX_DOWNLOAD_TRIES} attempts"
-        )
+            else:
+                cache_file.delete()
 
-    async def checksum_lfs_file(self, fn):
-        p = await asyncio.create_subprocess_exec(
-            "sha256sum",
-            fn,
-            "-b",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-        )
-        (stdout_data, _) = await p.communicate()
-        cs = stdout_data.decode().split(" ")[0]
-        exp = os.path.basename(fn)
-        if cs != exp:
-            log.error(
-                "bad checksum",
-                lfs_filename=fn,
-                lfs_expected_checksum=exp,
-                lfs_actual_checksum=cs,
-            )
-        return cs == exp
-
-    async def download_object(self, href, headers):
+    async def get_from_cache(self, href, headers):
         """@returns: filename where to find the file
         raises: HTTPNotFound in case of impossibility to download the file
         """
         if self.base_url is not None and href.startswith(self.base_url):
             href = href.replace(self.base_url, self.upstream_url)
-        fn = await self.get_cache_path_for_href(href)
-        # try to see if the file has been downloaded
-        async with lock(fn + ".lock", fcntl.LOCK_SH):
-            # getting the lock in shared mode ensures that the file is not being written
-            if os.path.exists(fn):
-                if await self.checksum_lfs_file(fn):
-                    os.utime(fn, None)
-                    return fn
-                log.warn("Erasing corrupted file", lfs_filename=fn)
-                os.unlink(fn)
 
-        async with lock(fn + ".lock", fcntl.LOCK_EX):
-            if os.path.exists(fn):
-                return fn
-            try:
-                await self.download_object_with_lock(fn, href, headers)
-            except HTTPFound:
-                return fn
-        return fn
+        cache_file = LFSCacheFile(href)
+
+        async with cache_file.read_lock():
+            if await cache_file.is_in_cache():
+                return cache_file.filename
+
+        async with cache_file.write_lock():
+            if await cache_file.is_in_cache():
+                return cache_file.filename
+            log.info("LFS cache miss", lfs_hit=False)
+            await asyncio.shield(self.download_object(cache_file, href, headers))
+
+            if not cache_file.exists():
+                raise HTTPNotFound(body=f"failed to get LFS file")
+            return cache_file.filename

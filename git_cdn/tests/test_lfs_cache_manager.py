@@ -13,6 +13,7 @@ from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
 
 from git_cdn.aiolock import lock
+from git_cdn.lfs_cache_manager import LFSCacheFile
 from git_cdn.lfs_cache_manager import LFSCacheManager
 
 
@@ -83,9 +84,7 @@ async def test_hook_lfs_batch_no_action(mocked_cache_manager, loop):
     )
 
 
-async def test_download_object_with_lock(
-    cache_manager, tmpworkdir, loop, aiohttp_client
-):
+async def test_download_object(cache_manager, tmpworkdir, loop, aiohttp_client):
     TEXT = "Hello, world"
 
     async def hello(request):
@@ -99,9 +98,12 @@ async def test_download_object_with_lock(
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = str(tmpworkdir / checksum)
-    await cache_manager.download_object_with_lock(fn, path, {})
-    with open(fn) as f:
+    fn = LFSCacheFile(checksum)
+    fn.filename = str(tmpworkdir / checksum)
+    fn.hash = checksum
+
+    await cache_manager.download_object(fn, path, {})
+    with open(fn.filename) as f:
         assert f.read() == TEXT
 
 
@@ -119,13 +121,13 @@ async def test_download_object_bad_checksum(
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = str(tmpworkdir / "xx")
     with pytest.raises(HTTPNotFound):
-        await cache_manager.download_object_with_lock(fn, path, {})
-    assert not os.path.exists(fn)
+        await cache_manager.get_from_cache(path, {})
 
 
-async def test_download_object(cache_manager, tmpworkdir, loop, aiohttp_client):
+async def test_download_object_cache_miss(
+    cache_manager, tmpworkdir, loop, aiohttp_client
+):
     TEXT = "Hello, world"
 
     async def hello(request):
@@ -139,7 +141,7 @@ async def test_download_object(cache_manager, tmpworkdir, loop, aiohttp_client):
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = await cache_manager.download_object(path, {})
+    fn = await cache_manager.get_from_cache(path, {})
     with open(fn) as f:
         assert f.read() == TEXT
 
@@ -161,11 +163,13 @@ async def test_download_object_cache_hit(
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = await cache_manager.get_cache_path_for_href(path)
-    lock(fn + ".lock")
-    with open(fn, "wb") as f:
-        f.write(TEXT.encode())
-    fn = await cache_manager.download_object(path, {})
+
+    cache_file = LFSCacheFile(path)
+    async with cache_file.write_lock():
+        with open(cache_file.filename, "wb") as f:
+            f.write(TEXT.encode())
+
+    fn = await cache_manager.get_from_cache(path, {})
     with open(fn) as f:
         assert f.read() == TEXT
 
@@ -187,14 +191,15 @@ async def test_download_object_cache_being_written(
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = await cache_manager.get_cache_path_for_href(path)
-    async with lock(fn + ".lock", fcntl.LOCK_EX):
-        coroutine = cache_manager.download_object(path, {})
-        with open(fn, "wb") as f:
+    cache_file = LFSCacheFile(path)
+    async with cache_file.write_lock():
+        coroutine = cache_manager.get_from_cache(path, {})
+        with open(cache_file.filename, "wb") as f:
             f.write(TEXT.encode())
+
     # no we have release the lock, we wait for the coroutine
     await coroutine
-    with open(fn) as f:
+    with open(cache_file.filename) as f:
         assert f.read() == TEXT
 
 
@@ -215,7 +220,5 @@ async def test_download_object_download_error(
     app.add_routes([web.get(path, hello)])
     client = await aiohttp_client(app)
     cache_manager.session = client
-    fn = await cache_manager.get_cache_path_for_href(path)
-    lock(fn + ".lock")
     with pytest.raises(HTTPNotFound):
-        await cache_manager.download_object(path, {})
+        await cache_manager.get_from_cache(path, {})
