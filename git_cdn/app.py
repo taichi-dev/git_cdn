@@ -339,7 +339,7 @@ class GitCDN:
             self.lfs_manager.set_base_url(str(request.url.origin()) + "/")
             h = request.headers.copy()
             del h["Host"]
-            fn = await self.lfs_manager.download_object(str(request.url), headers=h)
+            fn = await self.lfs_manager.get_from_cache(str(request.url), headers=h)
             if os.path.exists(fn):
                 self.app.served_lfs_objects += 1
                 return web.Response(body=open(fn, "rb"))

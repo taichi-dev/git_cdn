@@ -50,6 +50,7 @@ def log_proc_if_error(proc, cmd):
         cmd=cmd,
         cmd_stderr=cmd_stderr[:128],
         cmd_stdout=cmd_stdout[:128],
+        pid=proc.pid,
         returncode=proc.returncode,
     )
 
