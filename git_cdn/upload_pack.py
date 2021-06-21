@@ -158,8 +158,8 @@ class RepoCache:
         log.debug(
             "git_cmd done",
             cmd=args,
-            stdout_data=stdout_data.decode(),
-            stderr_data=stderr_data.decode(),
+            stdout_data=stdout_data.decode(errors="replace"),
+            stderr_data=stderr_data.decode(errors="replace"),
             rc=fetch_proc.returncode,
             pid=fetch_proc.pid,
             cmd_duration=time.time() - t1,
