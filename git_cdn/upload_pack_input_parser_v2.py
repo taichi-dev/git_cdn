@@ -77,6 +77,7 @@ class UploadPackInputParserV2:
         try:
             self.parser = iter(PacketLineParser(input))
             self.parse_command()
+
             if self.command in (b"ls-refs", b"empty request"):
                 return
             if self.command != b"fetch":
