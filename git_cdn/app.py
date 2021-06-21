@@ -63,11 +63,8 @@ parallel_request = 0
 def fix_headers(headers):
     """Remove headers about encoding and hosts, which do not make sense to forward in proxy
     This blacklist applies to request and response headers
-
-    Also remove Git-Protocol header from the client, which tells git to use the protocol-v2
-    which we don't support yet.
     """
-    for header in ("Host", "Transfer-Encoding", "Git-Protocol"):
+    for header in ("Host", "Transfer-Encoding"):
         if header in headers:
             del headers[header]
 
