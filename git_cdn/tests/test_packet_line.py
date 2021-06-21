@@ -4,7 +4,9 @@ import os
 
 import pytest
 
+from git_cdn.packet_line import DELIM_PKT
 from git_cdn.packet_line import FLUSH_PKT
+from git_cdn.packet_line import RESPONSE_END_PKT
 from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.packet_line import PacketLineParser
 
@@ -12,6 +14,13 @@ BASE_INPUT = (
     b"00a4want 7bc80fd0ada7602695c7819e0105431e3262ad0c multi_ack_detailed "
     b"no-done side-band-64k thin-pack no-progress ofs-delta deepen-since "
     b"deepen-not agent=git/2.20.1\n00000009done\n"
+)
+
+INPUT_LS_REFS = (
+    b"0014command=ls-refs\n0014agent=git/2.25.100010009peel\n000csymrefs\n"
+    b"0014ref-prefix HEAD\n"
+    b"001bref-prefix refs/heads/\n"
+    b"001aref-prefix refs/tags/\n0000"
 )
 
 
@@ -24,6 +33,41 @@ def test_parse_pkt_line():
         FLUSH_PKT,
         b"done\n",
     ]
+
+
+def test_parse_pkt_line_with_ls_refs():
+    parser = list(PacketLineParser(INPUT_LS_REFS))
+    is_in = False
+    for x in parser:
+        if x not in (FLUSH_PKT, DELIM_PKT, RESPONSE_END_PKT) and b"ls-refs" in x:
+            is_in = True
+    assert is_in
+
+
+@pytest.mark.parametrize(
+    "bad_length",
+    [
+        pytest.param(b"00a3"),
+        pytest.param(b"01a4"),
+    ],
+)
+def test_parse_pkt_line_bad_length_1(bad_length):
+    input = BASE_INPUT.replace(b"00a4", bad_length)
+    with pytest.raises(ValueError):
+        list(PacketLineParser(input))
+
+
+@pytest.mark.parametrize(
+    "bad_length",
+    [
+        pytest.param(b"0013"),
+        pytest.param(b"0114"),
+    ],
+)
+def test_parse_pkt_line_bad_length_2(bad_length):
+    input = INPUT_LS_REFS.replace(b"0014", bad_length)
+    with pytest.raises(ValueError):
+        list(PacketLineParser(input))
 
 
 def get_data(filename):

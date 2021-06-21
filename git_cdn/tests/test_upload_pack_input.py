@@ -39,18 +39,6 @@ def upload_pack_inputs(request):
     ]
 
 
-def test_parse_pkt_line_bad_length():
-    input = BASE_INPUT.replace(b"00a4", b"00a3")
-    with pytest.raises(ValueError):
-        list(PacketLineParser(input))
-
-
-def test_parse_pkt_line_bad_length_2():
-    input = BASE_INPUT.replace(b"00a4", b"01a4")
-    with pytest.raises(ValueError):
-        list(PacketLineParser(input))
-
-
 def test_parse_pkt_all_input(upload_pack_inputs):
     for i in upload_pack_inputs:
         list(PacketLineParser(i))
