@@ -21,7 +21,23 @@ class __FlushPkt:
         return "FLUSH_PKT"
 
 
+class __DelimPkt:
+    """Marker Class for Delimiter Packets"""
+
+    def __repr__(self):
+        return "DELIM_PKT"
+
+
+class __ResponseEndPkt:
+    """Marker Class for Response End Packets"""
+
+    def __repr__(self):
+        return "RESPONSE_END_PKT"
+
+
 FLUSH_PKT = __FlushPkt()
+DELIM_PKT = __DelimPkt()
+RESPONSE_END_PKT = __ResponseEndPkt()
 
 
 class PacketLineParser:
@@ -39,11 +55,14 @@ class PacketLineParser:
         if self.i + 4 > len(self.input):
             raise StopIteration()
 
-        length = self.input[self.i : self.i + 4]
-        length = int(length.decode(), 16)
-        if length == 0:
+        header = self.input[self.i : self.i + 4]
+        header = int(header.decode(), 16)
+        if header >= 4:
+            length = header
+        else:
             self.i += 4
-            return FLUSH_PKT
+            # if header is < 4, then it indicates a special packet
+            return {0: FLUSH_PKT, 1: DELIM_PKT, 2: RESPONSE_END_PKT}[header]
 
         if self.i + length > len(self.input):
             raise ValueError(
