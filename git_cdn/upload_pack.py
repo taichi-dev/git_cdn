@@ -335,7 +335,7 @@ class UploadPackHandler:
             "git-upload-pack",
             "--stateless-rpc",
             self.rcache.directory,
-            env=dict(os.environ, GIT_PROTOCOL="version=" + str(self.protocol_version)),
+            env=dict(os.environ, GIT_PROTOCOL=f"version={self.protocol_version}"),
             stdout=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
