@@ -111,7 +111,7 @@ class RepoCache:
         self.auth = auth
         self.lock = self.directory + b".lock"
         self.url = generate_url(upstream, path, auth)
-        _, self.bundle_lock, self.bundle_file = get_bundle_paths(path)
+        self.path = path
         self.prev_mtime = None
 
     def exists(self):
@@ -158,8 +158,8 @@ class RepoCache:
         log.debug(
             "git_cmd done",
             cmd=args,
-            stdout_data=stdout_data.decode(),
-            stderr_data=stderr_data.decode(),
+            stdout_data=stdout_data.decode(errors="replace"),
+            stderr_data=stderr_data.decode(errors="replace"),
             rc=fetch_proc.returncode,
             pid=fetch_proc.pid,
             cmd_duration=time.time() - t1,
@@ -186,17 +186,18 @@ class RepoCache:
         self.utime()
 
     async def clone(self):
+        _, bundle_lock, bundle_file = get_bundle_paths(self.path)
         for timeout in backoff(BACKOFF_START, BACKOFF_COUNT):
-            if os.path.exists(self.bundle_file):
-                async with lock(self.bundle_lock, mode=fcntl.LOCK_SH):
+            if os.path.exists(bundle_file):
+                async with lock(bundle_lock, mode=fcntl.LOCK_SH):
                     # try to clone the bundle file instead
                     _, stderr, returncode = await self.run_git(
-                        "clone", "--bare", self.bundle_file, self.directory
+                        "clone", "--bare", bundle_file, self.directory
                     )
                     if returncode == 0:
                         break
                     # didn't work? erase that file and retry the clone
-                    os.unlink(self.bundle_file)
+                    os.unlink(bundle_file)
 
             if self.exists():
                 rm_proc = await asyncio.create_subprocess_exec(
