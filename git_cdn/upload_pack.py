@@ -18,7 +18,6 @@ from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.pack_cache import PackCache
 from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.packet_line import to_packet
-from git_cdn.upload_pack_input_parser import UploadPackInputParser
 from git_cdn.util import backoff
 from git_cdn.util import get_bundle_paths
 from git_cdn.util import get_subdir
@@ -273,9 +272,18 @@ class StdOutReader:
 
 
 class UploadPackHandler:
-    """Unit testable upload-pack handler which automatically call git fetch to update the local copy"""
+    """Unit testable upload-pack handler
+    which automatically call git fetch to update the local copy"""
 
-    def __init__(self, path, writer: AbstractStreamWriter, auth, upstream, sema=None):
+    def __init__(
+        self,
+        path,
+        writer: AbstractStreamWriter,
+        auth,
+        upstream,
+        protocol_version,
+        sema=None,
+    ):
         self.upstream = upstream
         self.auth = auth
         self.path = path
@@ -285,6 +293,7 @@ class UploadPackHandler:
         self.pcache = None
         self.not_our_ref = False
         self.forward_error = False
+        self.protocol_version = protocol_version
 
     @staticmethod
     async def write_input(proc, input):
@@ -326,6 +335,7 @@ class UploadPackHandler:
             "git-upload-pack",
             "--stateless-rpc",
             self.rcache.directory,
+            env=dict(os.environ, GIT_PROTOCOL="version=" + str(self.protocol_version)),
             stdout=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -385,14 +395,15 @@ class UploadPackHandler:
         # In case of error, the error is already forwarded to client in doUploadPack().
         log.warning("Run with cache failed")
 
-    async def run(self, input: bytes):
+    async def run(self, parsed_input):
         """Run the whole process of upload pack, including sending the result to the writer"""
-        parsed_input = UploadPackInputParser(input)
         dict_input = parsed_input.as_dict.copy()
         log.debug("parsed input", input_details=dict_input)
         input_to_ctx(dict_input)
         if parsed_input.parse_error:
-            await self.write_pack_error(f"Wrong upload pack input: {input[:128]}")
+            await self.write_pack_error(
+                f"Wrong upload pack input: {parsed_input.input[:128]}"
+            )
             return
         if not parsed_input.wants:
             log.warning("Request without wants")

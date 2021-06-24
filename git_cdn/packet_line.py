@@ -108,12 +108,13 @@ class PacketLineChunkParser:
                 break
 
             pkt_len = int(hdr.decode(), 16)
-            if pkt_len == 0:
+            if pkt_len < 3:
                 yield hdr
-                endflush = True
+                if pkt_len == 0:
+                    endflush = True
                 continue
 
-            if pkt_len < 5:
+            if pkt_len in (3, 4):
                 raise self.ParseError(f"Invalid packet length {pkt_len}")
 
             endflush = False

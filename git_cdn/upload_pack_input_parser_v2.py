@@ -1,5 +1,6 @@
 # Standard Library
 import hashlib
+import os
 import uuid
 
 from structlog import getLogger
@@ -231,7 +232,19 @@ class UploadPackInputParserV2:
 
     def can_be_cached(self):
         """
-        for now we return False
-        until we analyze logs and needs and decide what to cache
+        by default, cache only for git clone with single branch, and no depth
+        multibranch and depth can be enabled with environment variable.
+        fetches (with haves > 0) won't benefit from a cache.
+        also only cache if self.done=True
         """
-        return False
+        if len(self.haves) != 0 or not self.done:
+            return False
+        if self.filter:
+            return False
+        multi = os.getenv("PACK_CACHE_MULTI", "false").lower() in ["true", "1"]
+        if not multi and len(self.wants) > 1:
+            return False
+        depth = os.getenv("PACK_CACHE_DEPTH", "false").lower() in ["true", "1"]
+        if not depth and self.depth:
+            return False
+        return True

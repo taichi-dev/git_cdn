@@ -494,8 +494,9 @@ class GitCDN:
                 auth=creds,
                 upstream=self.upstream,
                 sema=self.sema,
+                protocol_version=protocol_version,
             )
-            await proc.run(request_content)
+            await proc.run(parsed_content)
         except CancelledError:
             bind_contextvars(canceled=True)
             raise
