@@ -36,11 +36,11 @@ def test_parse_input_with_fetch():
 
     assert parser.command == b"fetch"
 
-    assert parser.haves == []
-    assert parser.wants == [
-        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    assert parser.haves == set()
+    assert parser.wants == {
         b"44667f210351a1a425a6463a204f32279d3b24f3",
-    ]
+        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    }
     assert parser.done
     assert not parser.filter
     assert not parser.depth
@@ -55,7 +55,7 @@ def test_parse_input_with_fetch():
         "agent": "git/2.25.1",
         "parse_error": False,
         "haves": "",
-        "wants": "fcd062d2 44667f21",
+        "wants": "44667f21 fcd062d2",
         "num_haves": 0,
         "num_wants": 2,
         "args": "done ofs-delta thin-pack",
@@ -72,11 +72,11 @@ def test_parse_input_with_haves():
 
     assert parser.command == b"fetch"
 
-    assert parser.haves == [b"7bc80fd0ada7602695c7819e0105431e3262ad0c"]
-    assert parser.wants == [
-        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    assert parser.haves == {b"7bc80fd0ada7602695c7819e0105431e3262ad0c"}
+    assert parser.wants == {
         b"44667f210351a1a425a6463a204f32279d3b24f3",
-    ]
+        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    }
     assert parser.done
     assert not parser.filter
     assert not parser.depth
@@ -91,7 +91,7 @@ def test_parse_input_with_haves():
         "agent": "git/2.25.1",
         "parse_error": False,
         "haves": "7bc80fd0",
-        "wants": "fcd062d2 44667f21",
+        "wants": "44667f21 fcd062d2",
         "num_haves": 1,
         "num_wants": 2,
         "args": "done ofs-delta thin-pack",
@@ -108,11 +108,11 @@ def test_parse_input_with_all_basic_args():
 
     assert parser.command == b"fetch"
 
-    assert parser.haves == []
-    assert parser.wants == [
-        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    assert parser.haves == set()
+    assert parser.wants == {
         b"44667f210351a1a425a6463a204f32279d3b24f3",
-    ]
+        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    }
     assert parser.done
     assert not parser.filter
     assert not parser.depth
@@ -127,7 +127,7 @@ def test_parse_input_with_all_basic_args():
         "agent": "git/2.25.1",
         "parse_error": False,
         "haves": "",
-        "wants": "fcd062d2 44667f21",
+        "wants": "44667f21 fcd062d2",
         "num_haves": 0,
         "num_wants": 2,
         "args": "done include-tag no-progress ofs-delta thin-pack",
@@ -149,18 +149,18 @@ def test_parse_input_with_duplicated_wants():
     )
 
     parser = UploadPackInputParserV2(FETCH_WITH_DUPLICATED_WANTS)
-    assert parser.wants == [
-        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    assert parser.wants == {
         b"44667f210351a1a425a6463a204f32279d3b24f3",
-    ]
+        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    }
     assert parser.hash == HASH_FETCH
 
 
 def test_parse_upload_pack_input_error():
     input = INPUT_FETCH.replace(b"0011", b"0111")
     parser = UploadPackInputParserV2(input)
-    assert parser.wants == []
-    assert parser.haves == []
+    assert parser.wants == set()
+    assert parser.haves == set()
     assert parser.caps == {}
     assert parser.as_dict == {
         "parse_error": True,

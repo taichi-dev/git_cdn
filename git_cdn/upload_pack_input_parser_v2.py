@@ -62,8 +62,8 @@ class UploadPackInputParserV2:
         self.caps = {}
 
         # for 'fetch' command
-        self.haves = []
-        self.wants = []
+        self.haves = set()
+        self.wants = set()
         self.args = {}  # args without haves and wants
         self.done = False
         self.filter = False
@@ -74,12 +74,18 @@ class UploadPackInputParserV2:
         try:
             self.parser = iter(PacketLineParser(input))
             self.parse_command()
-            self.parse_caps()
-            assert self.command == b"fetch"
+            if self.command in (b"ls-refs", b"empty request"):
+                return
+            if self.command != b"fetch":
+                raise Exception
 
-            self.parse_args()
+            if not self.parse_caps():
+                raise Exception
+            if not self.parse_args():
+                raise Exception
             # make sure that the FLUSH_PKT has been found at the end of the input
-            assert self.parser.i == len(input)
+            if self.parser.i != len(input):
+                raise Exception
 
             if b"filter" in self.args:
                 self.filter = True
@@ -137,15 +143,14 @@ class UploadPackInputParserV2:
 
         pkt = next(self.parser)
         if pkt == FLUSH_PKT:
+            self.command = b"empty request"
             return
 
-        if pkt[-1] == 10:
-            line = pkt[:-1]
-        else:
-            line = pkt
+        line = pkt.rstrip(b"\n")
         line_split = line.split(b"=")
-        assert line_split[0].lower() == b"command"
-        self.command = line_split[1]
+        if line_split[0].lower() != b"command":
+            self.command = b"error"
+        self.command = line_split[1].lower()
 
     def parse_caps(self):
         self.caps = {}
@@ -154,67 +159,56 @@ class UploadPackInputParserV2:
         while pkt not in (
             FLUSH_PKT,
             DELIM_PKT,
-            RESPONSE_END_PKT,
         ):
-            if pkt[-1] == 10:
-                line = pkt[:-1]
-            else:
-                line = pkt
+            if pkt == RESPONSE_END_PKT:
+                return False
 
+            line = pkt.rstrip(b"\n")
             if b"=" in line:
                 k, v = line.split(b"=", 1)
             else:
                 k, v = line, True
+
             if k not in GIT_CAPS:
                 log.warning("unknown cap: %r", k)
                 continue
             self.caps[k] = v
             pkt = next(self.parser)
-        # RESPONSE_END_PKT should not appear here
-        assert pkt in (FLUSH_PKT, DELIM_PKT)
+        return True
 
     def parse_args(self):
         self.args = {}
 
         pkt = next(self.parser)
-        while pkt not in (
-            FLUSH_PKT,
-            DELIM_PKT,
-            RESPONSE_END_PKT,
-        ):
-            if pkt[-1] == 10:
-                line = pkt[:-1]
-            else:
-                line = pkt
+        while pkt != FLUSH_PKT:
+            if pkt in (DELIM_PKT, RESPONSE_END_PKT):
+                return False
 
+            line = pkt.rstrip(b"\n")
             if b" " in line:
                 k, v = line.split(b" ", 1)
 
                 if k.lower() == b"have":
-                    if v not in self.haves:
-                        self.haves.append(v)
+                    self.haves.add(v)
                 elif k.lower() == b"want":
-                    if v not in self.wants:
-                        self.wants.append(v)
+                    self.wants.add(v)
                 else:
                     self.args[k] = v
             else:
-                self.args[line] = True
+                k = line.lower()
+                self.args[k] = True
 
-                if line.lower() == b"done":
+                if k == b"done":
                     self.done = True
-                if b"deep" in line.lower():
+                if b"deep" in k:
                     self.depth = True
-                    self.depth_lines.append(line)
-
-                k = line
+                    self.depth_lines.append(k)
 
             if k not in ARGS:
                 log.warning("unknown arg: %r", k)
                 continue
             pkt = next(self.parser)
-        # only FLUSH_PKT should appear here
-        assert pkt == FLUSH_PKT
+        return True
 
     def __hash__(self):
         return int(self.hash, 16)

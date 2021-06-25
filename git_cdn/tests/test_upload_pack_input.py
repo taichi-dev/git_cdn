@@ -51,8 +51,8 @@ def test_parse_upload_pack_input_nodone():
 
 def test_parse_upload_pack_input():
     parser = UploadPackInputParser(BASE_INPUT)
-    assert parser.wants == [b"7bc80fd0ada7602695c7819e0105431e3262ad0c"]
-    assert parser.haves == []
+    assert parser.wants == {b"7bc80fd0ada7602695c7819e0105431e3262ad0c"}
+    assert parser.haves == set()
     assert parser.done
     assert parser.caps == {
         b"multi_ack_detailed": True,
@@ -101,8 +101,8 @@ def test_parse_upload_pack_input():
 
 def test_parse_upload_pack_input_with_have():
     parser = UploadPackInputParser(INPUT_WITH_HAVE)
-    assert parser.wants == [b"3ff9e763a0b11f0c51101b5cb204a12d233f5f65"]
-    assert parser.haves == [b"3ff9e763a0b11f0c51101b5cb204a12d233f5f65"]
+    assert parser.wants == {b"3ff9e763a0b11f0c51101b5cb204a12d233f5f65"}
+    assert parser.haves == {b"3ff9e763a0b11f0c51101b5cb204a12d233f5f65"}
     assert parser.caps == {
         b"agent": b"git/2.23.0",
         b"deepen-not": True,
@@ -158,8 +158,8 @@ def test_parse_upload_pack_all_input(upload_pack_inputs):
 def test_parse_upload_pack_input_error():
     input = BASE_INPUT.replace(b"00a4", b"01a4")
     parser = UploadPackInputParser(input)
-    assert parser.wants == []
-    assert parser.haves == []
+    assert parser.wants == set()
+    assert parser.haves == set()
     assert parser.caps == {}
     assert parser.as_dict == {
         "parse_error": True,
