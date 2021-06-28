@@ -114,8 +114,8 @@ class UploadPackInputParserV2:
                 "caps": b" ".join(sorted(self.caps)).decode(),
                 "hash": self.hash[:8],
                 "agent": self.caps.get(b"agent", b"na").decode(),
-                "haves": b" ".join([x[:8] for x in self.haves]).decode(),
-                "wants": b" ".join([x[:8] for x in self.wants]).decode(),
+                "haves": b" ".join([x[:8] for x in sorted(self.haves)]).decode(),
+                "wants": b" ".join([x[:8] for x in sorted(self.wants)]).decode(),
                 "num_haves": len(self.haves),
                 "num_wants": len(self.wants),
                 "args": b" ".join(sorted(self.args)).decode(),
@@ -149,7 +149,7 @@ class UploadPackInputParserV2:
         line = pkt.rstrip(b"\n")
         line_split = line.split(b"=")
         if line_split[0].lower() != b"command":
-            self.command = b"error"
+            raise Exception
         self.command = line_split[1].lower()
 
     def parse_caps(self):
@@ -171,7 +171,6 @@ class UploadPackInputParserV2:
 
             if k not in GIT_CAPS:
                 log.warning("unknown cap: %r", k)
-                continue
             self.caps[k] = v
             pkt = next(self.parser)
         return True
@@ -206,7 +205,6 @@ class UploadPackInputParserV2:
 
             if k not in ARGS:
                 log.warning("unknown arg: %r", k)
-                continue
             pkt = next(self.parser)
         return True
 

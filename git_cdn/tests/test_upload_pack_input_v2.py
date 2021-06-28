@@ -169,8 +169,7 @@ def test_parse_upload_pack_input_error():
     }
 
 
-def test_parse_upload_pack_input_error_2():
-    """FETCH_PKT too soon"""
+def test_parse_input_fetch_pkt_too_soon():
     WRONG_INPUT = (
         b"0011command=fetch0014agent=git/2.25.10001000dthin-pack000dofs-delta"
         b"0032want fcd062d2d06d00fc2a1bf3c8432effccbd186a08\n0000"
@@ -185,11 +184,53 @@ def test_parse_upload_pack_input_error_2():
     }
 
 
+def test_parse_input_without_command():
+    input = INPUT_FETCH.replace(b"0011command=fetch", b"")
+    parser = UploadPackInputParserV2(input)
+    assert parser.as_dict == {
+        "parse_error": True,
+        "input": input.decode(),
+        "hash": ANYSTRING,
+    }
+
+
+def test_parse_input_with_unknown_cap():
+    input = INPUT_FETCH.replace(b"agent", b"abcde")
+    parser = UploadPackInputParserV2(input)
+    assert not parser.as_dict == {
+        "parse_error": True,
+        "input": input.decode(),
+        "hash": ANYSTRING,
+    }
+
+
+def test_parse_input_with_unknown_arg():
+    input = INPUT_FETCH.replace(b"want", b"abcd")
+    parser = UploadPackInputParserV2(input)
+    assert not parser.as_dict == {
+        "parse_error": True,
+        "input": input.decode(),
+        "hash": ANYSTRING,
+    }
+
+
+def test_parse_input_without_flush_pkt():
+    """should finish anyway :
+    pkt = next(self.parser) will raise a StopIteration exception"""
+    input = INPUT_FETCH.replace(b"0000", b"")
+    parser = UploadPackInputParserV2(input)
+    assert parser.as_dict == {
+        "parse_error": True,
+        "input": input.decode(),
+        "hash": ANYSTRING,
+    }
+
+
 @pytest.mark.parametrize(
     "current",
     [
-        pytest.param(b"0001"),
-        pytest.param(b"0009"),
+        b"0001",
+        b"0009",
     ],
 )
 def test_input_with_response_end_pkt(current):

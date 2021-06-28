@@ -47,8 +47,8 @@ def test_parse_pkt_line_with_ls_refs():
 @pytest.mark.parametrize(
     "bad_length",
     [
-        pytest.param(b"00a3"),
-        pytest.param(b"01a4"),
+        b"00a3",
+        b"01a4",
     ],
 )
 def test_parse_pkt_line_bad_length_1(bad_length):
@@ -60,8 +60,8 @@ def test_parse_pkt_line_bad_length_1(bad_length):
 @pytest.mark.parametrize(
     "bad_length",
     [
-        pytest.param(b"0013"),
-        pytest.param(b"0114"),
+        b"0013",
+        b"0114",
     ],
 )
 def test_parse_pkt_line_bad_length_2(bad_length):
