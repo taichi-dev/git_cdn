@@ -113,6 +113,7 @@ def find_gitpath(path):
         "/git-receive-pack",
         ".git/clone.bundle",
         "/clone.bundle",
+        "/info/lfs/objects/batch",
     ):
         if path.endswith(suffix):
             return path[: -len(suffix)] + ".git"
