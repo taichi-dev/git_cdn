@@ -58,8 +58,8 @@ class UploadPackInputParser:
     def __init__(self, input):
         assert isinstance(input, bytes)
         self.input = input
-        self.wants = []
-        self.haves = []
+        self.wants = set()
+        self.haves = set()
         self.caps = {}
         self.depth = False
         self.depth_lines = []
@@ -123,7 +123,7 @@ class UploadPackInputParser:
         line = pkt[:-1]
         line_split = line.split(b" ")
         assert line_split[0].lower() == b"want"
-        self.wants = [line_split[1]]
+        self.wants = {line_split[1]}
         self.caps = {}
         for cap in line_split[2:]:
             if b"=" in cap:
@@ -140,18 +140,14 @@ class UploadPackInputParser:
             if pkt == FLUSH_PKT:
                 continue
 
-            if pkt[-1] == 10:
-                line = pkt[:-1]
-            else:
-                line = pkt
-
+            line = pkt.rstrip(b"\n")
             line_split = line.split(b" ")
             if line_split[0].lower() == b"want":
-                self.wants.append(line_split[1])
+                self.wants.add(line_split[1])
             if line_split[0].lower() == b"done":
                 self.done = True
             if line_split[0].lower() == b"have":
-                self.haves.append(line_split[1])
+                self.haves.add(line_split[1])
             if b"deep" in line_split[0].lower():
                 self.depth = True
                 self.depth_lines.append(line)

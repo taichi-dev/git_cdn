@@ -54,6 +54,7 @@ if sentry_dsn:
 log = getLogger()
 helpers.netrc_from_env = lambda: None
 GITLFS_OBJECT_RE = re.compile(r"(?P<path>.*\.git)/gitlab-lfs/objects/[0-9a-f]{64}$")
+PROTOCOL_VERSION_RE = re.compile(r"^version=(\d+)$")
 parallel_request = 0
 
 
@@ -295,7 +296,8 @@ class GitCDN:
         return response
 
     async def _routing_handler(self, request):
-        """We implement the routing manually because iohttp routing may not handle the requirements"""
+        """We implement the routing manually
+        because iohttp routing may not handle the requirements"""
         path = request.path
         method = request.method.lower()
         git_path = find_gitpath(request.path)
@@ -322,6 +324,15 @@ class GitCDN:
             request_headers_dict=h,
             parallel_request=parallel_request,
         )
+
+        protocol_version = 1
+        git_protocol = h.get("Git-Protocol")
+        if git_protocol is not None:
+            version = PROTOCOL_VERSION_RE.match(git_protocol)
+            if version is not None:
+                protocol_version = int(version.group(1))
+        bind_contextvars(git_protocol_version=protocol_version)
+
         if method == "post" and path.endswith("git-upload-pack"):
             bind_contextvars(handler="upload-pack")
             if not git_path:
