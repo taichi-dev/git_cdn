@@ -55,6 +55,9 @@ class UploadPackInputParserV2:
     https://www.git-scm.com/docs/protocol-v2#_command_request
     """
 
+    class InputParserError(Exception):
+        pass
+
     def __init__(self, input):
         assert isinstance(input, bytes)
         self.input = input
@@ -77,15 +80,16 @@ class UploadPackInputParserV2:
             if self.command in (b"ls-refs", b"empty request"):
                 return
             if self.command != b"fetch":
-                raise Exception
+                raise self.InputParserError(f"Invalid command: {self.command}")
 
-            if not self.parse_caps():
-                raise Exception
-            if not self.parse_args():
-                raise Exception
+            self.parse_caps()
+            self.parse_args()
+
             # make sure that the FLUSH_PKT has been found at the end of the input
             if self.parser.i != len(input):
-                raise Exception
+                raise self.InputParserError(
+                    "Parser not empty when ending flush packet occured"
+                )
 
             if b"filter" in self.args:
                 self.filter = True
@@ -149,7 +153,9 @@ class UploadPackInputParserV2:
         line = pkt.rstrip(b"\n")
         line_split = line.split(b"=")
         if line_split[0].lower() != b"command":
-            raise Exception
+            raise self.InputParserError(
+                f"Missing keyword 'command', got {line_split[0]} instead"
+            )
         self.command = line_split[1].lower()
 
     def parse_caps(self):
@@ -161,7 +167,9 @@ class UploadPackInputParserV2:
             DELIM_PKT,
         ):
             if pkt == RESPONSE_END_PKT:
-                return False
+                raise self.InputParserError(
+                    "Found RESPONSE_END_PKT during caps parsing"
+                )
 
             line = pkt.rstrip(b"\n")
             if b"=" in line:
@@ -173,7 +181,6 @@ class UploadPackInputParserV2:
                 log.warning("unknown cap: %r", k)
             self.caps[k] = v
             pkt = next(self.parser)
-        return True
 
     def parse_args(self):
         self.args = {}
@@ -181,7 +188,7 @@ class UploadPackInputParserV2:
         pkt = next(self.parser)
         while pkt != FLUSH_PKT:
             if pkt in (DELIM_PKT, RESPONSE_END_PKT):
-                return False
+                raise self.InputParserError(f"Found {pkt} during args parsing")
 
             line = pkt.rstrip(b"\n")
             if b" " in line:
@@ -206,7 +213,6 @@ class UploadPackInputParserV2:
             if k not in ARGS:
                 log.warning("unknown arg: %r", k)
             pkt = next(self.parser)
-        return True
 
     def __hash__(self):
         return int(self.hash, 16)
