@@ -219,6 +219,35 @@ class RepoCache:
         if returncode != 0:
             raise HTTPInternalServerError(reason=stderr.decode())
 
+    async def cat_file(self, handler, refs):
+        stdout = None
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "cat-file",
+            "--batch-check",
+            "--no-buffer",
+            stdout=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=self.directory,
+        )
+        try:
+            for ref in refs:
+                proc.stdin.write(ref + b"\n")
+            await proc.stdin.drain()
+            proc.stdin.close()
+            stdout = await proc.stdout.read()
+        except (CancelledError, ConnectionResetError):
+            bind_contextvars(canceled=True)
+            log.warning("Client disconnected during cat-file")
+            raise
+        except Exception:
+            log.exception("cat-file failure")
+        finally:
+            await ensure_proc_terminated(proc, "git cat-file", GIT_PROCESS_WAIT_TIMEOUT)
+            log.debug("cat-file done", pid=proc.pid)
+        return stdout
+
     async def update(self):
         async with self.write_lock():
             if not self.exists():
@@ -423,6 +452,29 @@ class UploadPackHandler:
                     return await self.doUploadPack(parsed_input)
         return True
 
+    async def check_input_wants(self, wants):
+        """Return True if all sha1 in wants are present in self.rcache"""
+        stdout = await self.rcache.cat_file(self, wants)
+        return not b"missing" in stdout
+
+    async def ensure_input_wants_in_rcache(self, wants):
+        if not self.rcache.exists():
+            log.debug("rcache noexistent, cloning")
+            await self.rcache.force_update()
+        else:
+            our_refs = False
+            async with self.rcache.read_lock():
+                if not self.sema:
+                    our_refs = await self.check_input_wants(wants)
+                else:
+                    async with AioSemaphore(self.sema):
+                        our_refs = await self.check_input_wants(wants)
+
+            if not our_refs:
+                log.debug("not our refs, fetching")
+                async with self.rcache.write_lock():
+                    await self.rcache.fetch()
+
     async def execute(self, parsed_input):
         """Start the process upload-pack process optimistically.
         Fetch the first line of result to see if there is an error.
@@ -431,6 +483,7 @@ class UploadPackHandler:
         """
         self.rcache = RepoCache(self.path, self.auth, self.upstream)
 
+        await self.ensure_input_wants_in_rcache(parsed_input.wants)
         for loop in range(2):
             if not await self.uploadPack(parsed_input):
                 return
