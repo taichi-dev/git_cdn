@@ -113,68 +113,90 @@ async def test_git_lfs_low_level_gzip(make_client, loop, app, request):
     assert "3ecc0bf8cd58b5bcfe371c55bad3bf72aca9dfce0b8f31a99aa565267d71ae05" in href
 
 
-async def test_basic(make_client, loop, tmpdir, app, header_for_git):
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_basic(make_client, loop, tmpdir, app, header_for_git, protocol_version):
     assert loop
 
     app = app()
     client = await make_client(app)
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
     tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
-        "git", *header_for_git, "clone", url, stdin=asyncio.subprocess.PIPE
+        "git",
+        *header_for_git,
+        "-c",
+        protocol,
+        "clone",
+        url,
+        stdin=asyncio.subprocess.PIPE,
     )
     assert (await proc.wait()) == 0
 
 
-async def test_protocol_v2(make_client, loop, tmpdir, app):
-    assert loop
-
-    app = app()
-    client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
-    tmpdir.chdir()
-    proc = await asyncio.create_subprocess_exec(
-        "git", "-c", "protocol.version=2", "clone", url, stdin=asyncio.subprocess.PIPE
-    )
-    assert (await proc.wait()) == 0
-
-
-async def test_no_ending_dot_git(make_client, loop, tmpdir, app, header_for_git):
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_no_ending_dot_git(
+    make_client, loop, tmpdir, app, header_for_git, protocol_version
+):
     assert loop
 
     app = app()
     client = await make_client(app)
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH[:-4])
     tmpdir.chdir()
-    proc = await asyncio.create_subprocess_exec(
-        "git", *header_for_git, "clone", url, stdin=asyncio.subprocess.PIPE
-    )
-    assert (await proc.wait()) == 0
-
-
-async def test_basic_shallow(make_client, loop, tmpdir, app, header_for_git):
-    assert loop
-
-    app = app()
-    client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
-    tmpdir.chdir()
-    proc = await asyncio.create_subprocess_exec(
-        "git", *header_for_git, "clone", "--depth=1", url, stdin=asyncio.subprocess.PIPE
-    )
-    assert (await proc.wait()) == 0
-
-
-async def test_basic_filter(make_client, loop, tmpdir, app, header_for_git):
-    assert loop
-
-    app = app()
-    client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
-    tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
         "git",
         *header_for_git,
+        "-c",
+        protocol,
+        "clone",
+        url,
+        stdin=asyncio.subprocess.PIPE,
+    )
+    assert (await proc.wait()) == 0
+
+
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_basic_shallow(
+    make_client, loop, tmpdir, app, header_for_git, protocol_version
+):
+    assert loop
+
+    app = app()
+    client = await make_client(app)
+    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
+    proc = await asyncio.create_subprocess_exec(
+        "git",
+        *header_for_git,
+        "-c",
+        protocol,
+        "clone",
+        "--depth=1",
+        url,
+        stdin=asyncio.subprocess.PIPE,
+    )
+    assert (await proc.wait()) == 0
+
+
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_basic_filter(
+    make_client, loop, tmpdir, app, header_for_git, protocol_version
+):
+    assert loop
+
+    app = app()
+    client = await make_client(app)
+    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
+    proc = await asyncio.create_subprocess_exec(
+        "git",
+        *header_for_git,
+        "-c",
+        protocol,
         "clone",
         "--depth=1",
         "--filter=blob:none",
@@ -184,7 +206,10 @@ async def test_basic_filter(make_client, loop, tmpdir, app, header_for_git):
     assert (await proc.wait()) == 0
 
 
-async def test_git_lfs(make_client, loop, tmpdir, app, monkeypatch, header_for_git):
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_git_lfs(
+    make_client, loop, tmpdir, app, monkeypatch, header_for_git, protocol_version
+):
     assert loop
 
     app = app()
@@ -192,9 +217,12 @@ async def test_git_lfs(make_client, loop, tmpdir, app, monkeypatch, header_for_g
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
     tmpdir.chdir()
     monkeypatch.setenv("GIT_TRACE", 1)
+    protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
         "git",
         *header_for_git,
+        "-c",
+        protocol,
         "clone",
         url,
         "-b",
@@ -219,6 +247,8 @@ async def test_git_lfs(make_client, loop, tmpdir, app, monkeypatch, header_for_g
             "git",
             *header_for_git,
             "-c",
+            "protocol.version=1",
+            "-c",
             "user.email=test@bot",
             "-c",
             "user.name=test",
@@ -233,6 +263,8 @@ async def test_git_lfs(make_client, loop, tmpdir, app, monkeypatch, header_for_g
         proc = await asyncio.create_subprocess_exec(
             "git",
             *header_for_git,
+            "-c",
+            "protocol.version=1",
             "push",
             url,
             "-f",
@@ -242,7 +274,8 @@ async def test_git_lfs(make_client, loop, tmpdir, app, monkeypatch, header_for_g
         assert (await proc.wait()) == 0
 
 
-async def test_push(make_client, loop, tmpdir, app, header_for_git):
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_push(make_client, loop, tmpdir, protocol_version, app, header_for_git):
     assert loop
     if "PUSH_TESTS" not in os.environ:
         pytest.skip("cannot run push tests in public pre-commit CI")
@@ -251,8 +284,17 @@ async def test_push(make_client, loop, tmpdir, app, header_for_git):
     client = await make_client(app)
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
     tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
+
     proc = await asyncio.create_subprocess_exec(
-        "git", *header_for_git, "clone", url, "gitdir", stdin=asyncio.subprocess.PIPE
+        "git",
+        *header_for_git,
+        "-c",
+        protocol,
+        "clone",
+        url,
+        "gitdir",
+        stdin=asyncio.subprocess.PIPE,
     )
     assert (await proc.wait()) == 0
     (tmpdir / "gitdir").chdir()
@@ -260,6 +302,8 @@ async def test_push(make_client, loop, tmpdir, app, header_for_git):
     proc = await asyncio.create_subprocess_exec(
         "git",
         *header_for_git,
+        "-c",
+        protocol,
         "-c",
         "user.email=test@bot",
         "-c",
@@ -275,6 +319,8 @@ async def test_push(make_client, loop, tmpdir, app, header_for_git):
     proc = await asyncio.create_subprocess_exec(
         "git",
         *header_for_git,
+        "-c",
+        protocol,
         "push",
         url,
         "-f",
@@ -285,7 +331,10 @@ async def test_push(make_client, loop, tmpdir, app, header_for_git):
 
 
 @pytest.mark.parametrize("num_times", range(2, 43, 10))
-async def test_parallel(make_client, loop, tmpdir, num_times, app, header_for_git):
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_parallel(
+    make_client, loop, tmpdir, num_times, protocol_version, app, header_for_git
+):
     """test N access in parallel from 2 12 22 32 42"""
 
     app = app()
@@ -293,10 +342,13 @@ async def test_parallel(make_client, loop, tmpdir, num_times, app, header_for_gi
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
     tmpdir.chdir()
     dl = []
+    protocol = f"protocol.version={protocol_version}"
     for i in range(num_times):
         proc = await asyncio.create_subprocess_exec(
             "git",
             *header_for_git,
+            "-c",
+            protocol,
             "clone",
             url,
             "dir" + str(i),
@@ -308,8 +360,16 @@ async def test_parallel(make_client, loop, tmpdir, num_times, app, header_for_gi
 
 
 @pytest.mark.parametrize("num_times", range(2, 43, 10))
+@pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_parallel_with_pack_cache(
-    make_client, loop, tmpdir, num_times, app, monkeypatch, header_for_git
+    make_client,
+    loop,
+    tmpdir,
+    num_times,
+    protocol_version,
+    app,
+    monkeypatch,
+    header_for_git,
 ):
     """test N access in parallel from 2 12 22 32 42"""
     # ensure new directory for each test
@@ -323,10 +383,13 @@ async def test_parallel_with_pack_cache(
 
     tmpdir.chdir()
     dl = []
+    protocol = f"protocol.version={protocol_version}"
     for i in range(num_times):
         proc = await asyncio.create_subprocess_exec(
             "git",
             *header_for_git,
+            "-c",
+            protocol,
             "clone",
             url,
             "dir" + str(i),
@@ -340,8 +403,9 @@ async def test_parallel_with_pack_cache(
     assert rets == [0] * num_times
 
 
+@pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_pack_cache_with_depth(
-    make_client, loop, tmpdir, app, monkeypatch, header_for_git
+    make_client, loop, tmpdir, protocol_version, app, monkeypatch, header_for_git
 ):
     monkeypatch.setenv("WORKING_DIRECTORY", tmpdir)
     monkeypatch.setenv("PACK_CACHE_DEPTH", "true")
@@ -352,9 +416,12 @@ async def test_pack_cache_with_depth(
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
 
     tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
         "git",
         *header_for_git,
+        "-c",
+        protocol,
         "clone",
         url,
         "dir",
@@ -367,13 +434,17 @@ async def test_pack_cache_with_depth(
     assert (await proc.wait()) == 0
 
 
-async def test_clone_with_bundle(make_client, loop, tmpdir, app, header_for_git):
+@pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_clone_with_bundle(
+    make_client, loop, tmpdir, app, header_for_git, protocol_version
+):
     assert loop
     app = app()
     DNSMASQ_PATH = GITLAB_REPO_TEST_GROUP + "/platform_external_dnsmasq.git"
     client = await make_client(app)
     url = "{}/{}".format(client.baseurl, DNSMASQ_PATH)
     tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
         "curl", "-O", url + "/clone.bundle", stdin=asyncio.subprocess.PIPE
     )
@@ -381,6 +452,8 @@ async def test_clone_with_bundle(make_client, loop, tmpdir, app, header_for_git)
     proc = await asyncio.create_subprocess_exec(
         "git",
         *header_for_git,
+        "-c",
+        protocol,
         "clone",
         "-b",
         "pie-release",
@@ -390,8 +463,9 @@ async def test_clone_with_bundle(make_client, loop, tmpdir, app, header_for_git)
     assert (await proc.wait()) == 0
 
 
+@pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_clone_with_bundle_but_not_exists(
-    make_client, loop, tmpdir, app, header_for_git
+    make_client, loop, tmpdir, app, header_for_git, protocol_version
 ):
     assert loop
     app = app()
@@ -403,9 +477,12 @@ async def test_clone_with_bundle_but_not_exists(
         "curl", "-O", url + "/clone.bundle", stdin=asyncio.subprocess.PIPE
     )
     assert (await proc.wait()) == 0
+    protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
         "git",
         *header_for_git,
+        "-c",
+        protocol,
         "clone",
         "-b",
         "pie-release",

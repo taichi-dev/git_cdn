@@ -33,6 +33,8 @@ from git_cdn.lfs_cache_manager import LFSCacheManager
 from git_cdn.log import enable_console_logs
 from git_cdn.log import enable_udp_logs
 from git_cdn.upload_pack import UploadPackHandler
+from git_cdn.upload_pack_input_parser import UploadPackInputParser
+from git_cdn.upload_pack_input_parser_v2 import UploadPackInputParserV2
 from git_cdn.util import backoff
 from git_cdn.util import check_path
 
@@ -61,11 +63,8 @@ parallel_request = 0
 def fix_headers(headers):
     """Remove headers about encoding and hosts, which do not make sense to forward in proxy
     This blacklist applies to request and response headers
-
-    Also remove Git-Protocol header from the client, which tells git to use the protocol-v2
-    which we don't support yet.
     """
-    for header in ("Host", "Transfer-Encoding", "Git-Protocol"):
+    for header in ("Host", "Transfer-Encoding"):
         if header in headers:
             del headers[header]
 
@@ -338,7 +337,7 @@ class GitCDN:
             bind_contextvars(handler="upload-pack")
             if not git_path:
                 raise HTTPBadRequest(reason="bad path: " + path)
-            return await self.handle_upload_pack(request, git_path)
+            return await self.handle_upload_pack(request, git_path, protocol_version)
         if method in ("post", "put") and path.endswith("git-receive-pack"):
             bind_contextvars(handler="redirect")
             return await self.proxify(request)
@@ -372,6 +371,9 @@ class GitCDN:
             parallel_request -= 1
 
     async def proxify(self, request):
+        return await self.proxify_with_data(request, request.content)
+
+    async def proxify_with_data(self, request, data):
         """Gitcdn acts as a dumb proxy to simplfy git 'insteadof' configuration. """
         upstream_url = self.upstream + request.path.lstrip("/")
         headers = request.headers.copy()
@@ -389,7 +391,7 @@ class GitCDN:
                 skip_auto_headers=["Accept-Encoding", "Accept", "User-Agent"],
                 # note that request.content is a StreamReader, so the data is streamed
                 # and not fully loaded in memory (unlike with python-requests)
-                data=request.content,
+                data=data,
             ) as response:
                 resp_error = "n/a"
                 if response.status >= 400:
@@ -430,7 +432,7 @@ class GitCDN:
     async def handle_liveness(self, _):
         return web.Response(text="live")
 
-    async def handle_upload_pack(self, request, path):
+    async def handle_upload_pack(self, request, path, protocol_version):
         """Second part of the git+http protocol. (fetch)
         This part creates the git-pack bundle fully locally if possible.
         The authentication is still re-checked (because we are stateless, we can't assume that the
@@ -439,6 +441,15 @@ class GitCDN:
         @todo see how we can do fully local by caching the authentication results in a local db
         (redis/sqlite?)
         """
+        request_content = await request.content.read()
+        if protocol_version == 2:
+            parsed_content = UploadPackInputParserV2(request_content)
+            if parsed_content.command == b"ls-refs":
+                bind_contextvars(upload_pack_status="redirect")
+                return await self.proxify_with_data(request, request_content)
+        else:
+            parsed_content = UploadPackInputParser(request_content)
+
         start_time = time.time()
         bind_contextvars(upload_pack_status="direct", canceled=False)
         response = None
@@ -461,7 +472,6 @@ class GitCDN:
                     return web.Response(text=response.reason, status=response.status)
 
             # read the upload-pack input from http response
-            content = await request.content.read()
             creds = get_url_creds_from_auth(auth)
 
             # start a streaming the response to the client
@@ -481,8 +491,9 @@ class GitCDN:
                 auth=creds,
                 upstream=self.upstream,
                 sema=self.sema,
+                protocol_version=protocol_version,
             )
-            await proc.run(content)
+            await proc.run(parsed_content)
         except CancelledError:
             bind_contextvars(canceled=True)
             raise
