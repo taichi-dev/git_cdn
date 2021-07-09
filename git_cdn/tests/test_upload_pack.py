@@ -287,3 +287,34 @@ async def test_flush_input(tmpdir, loop):
     content = UploadPackInputParser(b"0000")
     await proc.run(content)
     assert not writer.output
+
+
+@pytest.mark.parametrize(
+    "ref, in_repo",
+    [
+        (
+            [
+                b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
+                b"4284b1521b200ba4934ee710a4a538549f1f0f97",
+            ],
+            True,
+        ),
+        (
+            [
+                b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
+                b"4284b1521b200ba4934ee710a4a538549f1f0f96",
+            ],
+            False,
+        ),
+    ],
+)
+async def test_check_input_wants(tmpdir, loop, ref, in_repo):
+    writer = FakeStreamWriter()
+    proc = UploadPackHandler(
+        MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
+    )
+
+    proc.rcache = RepoCache(proc.path, proc.auth, proc.upstream)
+
+    await proc.rcache.update()
+    assert (await proc.check_input_wants(ref)) == in_repo
