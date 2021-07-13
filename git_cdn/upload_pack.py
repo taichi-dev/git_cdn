@@ -232,11 +232,10 @@ class RepoCache:
             cwd=self.directory,
         )
         try:
+            refs_str = b""
             for ref in refs:
-                proc.stdin.write(ref + b"\n")
-            await proc.stdin.drain()
-            proc.stdin.close()
-            stdout = await proc.stdout.read()
+                refs_str += ref + b"\n"
+            stdout, _ = await proc.communicate(refs_str)
         except (CancelledError, ConnectionResetError):
             bind_contextvars(canceled=True)
             log.warning("Client disconnected during cat-file")
