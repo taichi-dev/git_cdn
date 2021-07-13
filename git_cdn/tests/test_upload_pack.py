@@ -314,6 +314,7 @@ async def test_flush_input(tmpdir, loop):
             False,
         ),
     ],
+    ids=["all refs in repo", "missing refs in repo"],
 )
 async def test_check_input_wants(tmpdir, loop, ref, in_repo):
     writer = FakeStreamWriter()
