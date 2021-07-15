@@ -15,6 +15,9 @@ log = getLogger()
 
 GIT_CAPS = {  # https://git-scm.com/docs/protocol-v2/en#_capabilities
     b"agent",
+    b"server-option",
+    b"object-format",
+    b"session-id",
 }
 
 FEATURES = {
@@ -77,14 +80,15 @@ class UploadPackInputParserV2:
         self.parse_error = True
         try:
             self.parser = iter(PacketLineParser(input))
-            self.parse_command()
+            self.parse_caps()
 
+            if self.command == b"":
+                raise self.InputParserError("Missing keyword 'command'")
             if self.command in (b"ls-refs", b"empty request"):
                 return
             if self.command != b"fetch":
                 raise self.InputParserError(f"Invalid command: {self.command}")
 
-            self.parse_caps()
             self.parse_args()
 
             # make sure that the FLUSH_PKT has been found at the end of the input
@@ -144,7 +148,8 @@ class UploadPackInputParserV2:
                 "hash": self.hash[:5],
             }
 
-    def parse_command(self):
+    def parse_caps(self):
+        self.caps = {}
         self.command = b""
 
         pkt = next(self.parser)
@@ -152,18 +157,6 @@ class UploadPackInputParserV2:
             self.command = b"empty request"
             return
 
-        line = pkt.rstrip(b"\n")
-        line_split = line.split(b"=")
-        if line_split[0].lower() != b"command":
-            raise self.InputParserError(
-                f"Missing keyword 'command', got {line_split[0]} instead"
-            )
-        self.command = line_split[1].lower()
-
-    def parse_caps(self):
-        self.caps = {}
-
-        pkt = next(self.parser)
         while pkt not in (
             FLUSH_PKT,
             DELIM_PKT,
@@ -178,10 +171,14 @@ class UploadPackInputParserV2:
                 k, v = line.split(b"=", 1)
             else:
                 k, v = line, True
+            k, v = k.lower(), v.lower()
 
-            if k not in GIT_CAPS:
-                log.warning("unknown cap: %r", k)
-            self.caps[k] = v
+            if k == b"command":
+                self.command = v
+            else:
+                if k not in GIT_CAPS:
+                    log.warning("unknown cap: %r", k)
+                self.caps[k] = v
             pkt = next(self.parser)
 
     def parse_args(self):
