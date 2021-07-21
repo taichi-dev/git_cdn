@@ -167,11 +167,11 @@ class UploadPackInputParserV2:
                 )
 
             line = pkt.rstrip(b"\n")
+            line = line.lower()
             if b"=" in line:
                 k, v = line.split(b"=", 1)
             else:
                 k, v = line, True
-            k, v = k.lower(), v.lower()
 
             # parsing caps and command at the same time
             # because some clients send the command in the middle of the caps
@@ -193,17 +193,18 @@ class UploadPackInputParserV2:
                 raise self.InputParserError(f"Found {pkt} during args parsing")
 
             line = pkt.rstrip(b"\n")
+            line = line.lower()
             if b" " in line:
                 k, v = line.split(b" ", 1)
 
-                if k.lower() == b"have":
+                if k == b"have":
                     self.haves.add(v)
-                elif k.lower() == b"want":
+                elif k == b"want":
                     self.wants.add(v)
                 else:
                     self.args[k] = v
             else:
-                k = line.lower()
+                k = line
                 self.args[k] = True
 
                 if k == b"done":
