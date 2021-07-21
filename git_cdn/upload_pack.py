@@ -242,6 +242,7 @@ class RepoCache:
             raise
         except Exception:
             log.exception("cat-file failure")
+            raise
         finally:
             await ensure_proc_terminated(proc, "git cat-file", GIT_PROCESS_WAIT_TIMEOUT)
             log.debug("cat-file done", pid=proc.pid)
