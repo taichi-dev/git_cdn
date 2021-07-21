@@ -173,6 +173,9 @@ class UploadPackInputParserV2:
                 k, v = line, True
             k, v = k.lower(), v.lower()
 
+            # parsing caps and command at the same time
+            # because some clients send the command in the middle of the caps
+            # even if it is not documented like that
             if k == b"command":
                 self.command = v
             else:
