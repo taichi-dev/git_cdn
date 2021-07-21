@@ -187,6 +187,12 @@ class UploadPackInputParserV2:
             # because some clients send the command in the middle of the caps
             # even if it is not documented like that
             if k == b"command":
+                if self.command != b"":
+                    raise self.InputParserError(
+                        "Found two commands ({} and {}) instead of one".format(
+                            self.command.decode(), v.decode()
+                        )
+                    )
                 self.command = v
             else:
                 if k not in GIT_CAPS:
