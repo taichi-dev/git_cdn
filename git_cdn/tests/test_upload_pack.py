@@ -12,6 +12,7 @@ from git_cdn.upload_pack import RepoCache
 from git_cdn.upload_pack import UploadPackHandler
 from git_cdn.upload_pack import generate_url
 from git_cdn.upload_pack_input_parser import UploadPackInputParser
+from git_cdn.upload_pack_input_parser_v2 import UploadPackInputParserV2
 
 CLONE_INPUT = (
     b"""0098want 4284b1521b200ba4934ee710a4a538549f1f0f97 multi_ack_detailed no-done """
@@ -33,6 +34,12 @@ SHALLOW_INPUT_TRUNC = (
     b"""no-done side-band-64k thin-pack no-progress ofs-delta deepen-since """
     b"""deepen-not agent=git/2.16.2\n"""
     b"""0034shallow 4284b1521b200ba4934ee710a4a538549f1f0f97000cdeepen 10000"""
+)
+
+INPUT_FETCH = (
+    b"0011command=fetch0014agent=git/2.25.10001000dthin-pack000dofs-delta"
+    b"0032want 8f6312ec029e7290822bed826a05fd81e65b3b7c\n"
+    b"0032want 4284b1521b200ba4934ee710a4a538549f1f0f97\n0009done\n0000"
 )
 
 MANIFEST_PATH = f"{GITLAB_REPO_TEST_GROUP}/test_git_cdn.git"
@@ -287,3 +294,105 @@ async def test_flush_input(tmpdir, loop):
     content = UploadPackInputParser(b"0000")
     await proc.run(content)
     assert not writer.output
+
+
+@pytest.mark.parametrize(
+    "ref, in_repo",
+    [
+        (
+            [
+                b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
+                b"4284b1521b200ba4934ee710a4a538549f1f0f97",
+            ],
+            True,
+        ),
+        (
+            [
+                b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
+                b"4284b1521b200ba4934ee710a4a538549f1f0f96",
+            ],
+            False,
+        ),
+    ],
+    ids=["all refs in repo", "missing refs in repo"],
+)
+async def test_check_input_wants(tmpdir, loop, ref, in_repo):
+    writer = FakeStreamWriter()
+    proc = UploadPackHandler(
+        MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
+    )
+
+    proc.rcache = RepoCache(proc.path, proc.auth, proc.upstream)
+
+    await proc.rcache.update()
+    assert (await proc.check_input_wants(ref)) == in_repo
+
+
+async def test_ensure_input_wants_in_rcache(tmpdir, loop, mocker):
+    wants = [
+        b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
+        b"4284b1521b200ba4934ee710a4a538549f1f0f97",
+    ]
+
+    workdir = tmpdir / "workdir"
+    path = "{}/git/{}".format(workdir, MANIFEST_PATH)
+
+    writer = FakeStreamWriter()
+    proc = UploadPackHandler(
+        MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
+    )
+    proc.rcache = RepoCache(path, proc.auth, proc.upstream)
+
+    # before run(), clone a small part of the repo (no need to bother for async)
+    # to simulate the case where we have not all refs
+    os.system(
+        "git clone --bare {} {} --single-branch --branch initial_commit".format(
+            generate_url(proc.upstream, proc.path, proc.auth),
+            (workdir / "git" / MANIFEST_PATH),
+        )
+    )
+
+    assert proc.rcache.exists()
+    mock_fetch = mocker.patch.object(proc.rcache, "fetch")
+    mock_update = mocker.patch.object(proc.rcache, "force_update")
+
+    await proc.ensure_input_wants_in_rcache(wants)
+    mock_fetch.assert_called_once()
+    mock_update.assert_not_called()
+
+
+async def execute(proc, parsed_input):
+    await proc.ensure_input_wants_in_rcache(parsed_input.wants)
+    if not await proc.uploadPack(parsed_input):
+        return
+    await proc.rcache.update()
+
+
+async def test_uploadPack_runs_well(tmpdir, loop, mocker):
+    """tests that the 'uploadPack' method runs well
+    when running 'execute' method with a repo with missing 'wants'
+    """
+    parsed_input = UploadPackInputParserV2(INPUT_FETCH)
+
+    workdir = tmpdir / "workdir"
+    path = "{}/git/{}".format(workdir, MANIFEST_PATH)
+
+    writer = FakeStreamWriter()
+    proc = UploadPackHandler(
+        MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
+    )
+    proc.rcache = RepoCache(path, proc.auth, proc.upstream)
+
+    # before run(), clone a small part of the repo (no need to bother for async)
+    # to simulate the case where we have not all refs
+    os.system(
+        "git clone --bare {} {} --single-branch --branch initial_commit".format(
+            generate_url(proc.upstream, proc.path, proc.auth),
+            (workdir / "git" / MANIFEST_PATH),
+        )
+    )
+    assert proc.rcache.exists()
+    mock_update = mocker.patch.object(proc.rcache, "update")
+
+    await execute(proc, parsed_input)
+    mock_update.assert_not_called()
