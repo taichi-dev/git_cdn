@@ -30,6 +30,16 @@ HASH_WITH_ALL_BASIC_ARGS = (
     "0caff59b65c8f2bab7acf514dce99edb24bf49672d5eecce0642cd4d4bbe0960"
 )
 
+FETCH_WITH_OBJECT_FORMAT = (
+    b"0016object-format=sha10011command=fetch001eagent=git/2.29.2.windows.20001"
+    b"000dthin-pack000fno-progress000finclude-tag000dofs-delta"
+    b"0032want fcd062d2d06d00fc2a1bf3c8432effccbd186a08\n"
+    b"0032want 44667f210351a1a425a6463a204f32279d3b24f3\n0009done\n0000"
+)
+HASH_WITH_OBJECT_FORMAT = (
+    "2a46d98d04e4867c7e4d40efb7919ec117319c55ff2322bb9bb00daa44201089"
+)
+
 
 def test_parse_input_with_fetch():
     parser = UploadPackInputParserV2(INPUT_FETCH)
@@ -125,6 +135,42 @@ def test_parse_input_with_all_basic_args():
         "caps": "agent",
         "hash": "0caff59b",
         "agent": "git/2.25.1",
+        "parse_error": False,
+        "haves": "",
+        "wants": "44667f21 fcd062d2",
+        "num_haves": 0,
+        "num_wants": 2,
+        "args": "done include-tag no-progress ofs-delta thin-pack",
+        "clone": True,
+        "single_branch": False,
+        "done": True,
+        "filter": False,
+        "depth": False,
+    }
+
+
+def test_parse_input_with_object_format():
+    parser = UploadPackInputParserV2(FETCH_WITH_OBJECT_FORMAT)
+
+    assert parser.command == b"fetch"
+
+    assert parser.haves == set()
+    assert parser.wants == {
+        b"44667f210351a1a425a6463a204f32279d3b24f3",
+        b"fcd062d2d06d00fc2a1bf3c8432effccbd186a08",
+    }
+    assert parser.done
+    assert not parser.filter
+    assert not parser.depth
+    assert parser.depth_lines == []
+
+    assert parser.caps == {b"object-format": b"sha1", b"agent": b"git/2.29.2.windows.2"}
+
+    assert parser.hash == HASH_WITH_OBJECT_FORMAT
+    assert parser.as_dict == {
+        "caps": "agent object-format",
+        "hash": "2a46d98d",
+        "agent": "git/2.29.2.windows.2",
         "parse_error": False,
         "haves": "",
         "wants": "44667f21 fcd062d2",
