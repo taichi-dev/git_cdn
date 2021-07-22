@@ -12,6 +12,9 @@ import ujson
 from structlog.threadlocal import bind_threadlocal
 from structlog.threadlocal import clear_threadlocal
 
+g_version = "unknown"
+g_host = socket.gethostname()
+
 
 # Workaround for sentry, sentry has a hook on logging, and uses internally str(record.msg)
 # if record.msg is a dict, it is unreadable, so return only the message instead
@@ -62,13 +65,14 @@ class UdpJsonHandler(DatagramHandler):
     @staticmethod
     def basedict(record):
         return {
+            "application_name": "git-cdn",
+            "application_version": g_version,
             "facility": record.name,
-            # "file": record.pathname,
-            "line": record.lineno,
             "function": record.funcName,
-            "pid": record.process,
-            # "thread_name": record.threadName,
+            "host": g_host,
             "levelname": record.levelname.lower(),
+            "line": record.lineno,
+            "pid": record.process,
         }
 
     def makePickle(self, record):
@@ -106,6 +110,10 @@ class UdpJsonHandler(DatagramHandler):
 
 
 def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
+    if version:
+        global g_version
+        g_version = version
+
     rlog = logging.getLogger()
     structlog.configure(
         processors=[
@@ -122,19 +130,15 @@ def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
+    # wait for host dns to be reachable to avoid dropping first logs
+    wait_host_resolve(host)
+
     udpJsonHandler = UdpJsonHandler(host=host, port=port)
     rlog.addHandler(udpJsonHandler)
 
     # Add uuid for thread
     clear_threadlocal()
-    bind_threadlocal(uuid=str(uuid.uuid4()), application_name="gitcdn")
-    host = socket.gethostname()
-    if host:
-        bind_threadlocal(host=host)
-    if version:
-        bind_threadlocal(application_version=version)
-    # wait for host dns to be reachable to avoid dropping first logs
-    wait_host_resolve(host)
+    bind_threadlocal(uuid=str(uuid.uuid4()))
 
 
 def enable_console_logs():
