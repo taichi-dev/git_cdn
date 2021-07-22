@@ -464,11 +464,7 @@ class UploadPackHandler:
         else:
             our_refs = False
             async with self.rcache.read_lock():
-                if not self.sema:
-                    our_refs = await self.check_input_wants(wants)
-                else:
-                    async with AioSemaphore(self.sema):
-                        our_refs = await self.check_input_wants(wants)
+                our_refs = await self.check_input_wants(wants)
 
             if not our_refs:
                 log.debug("not our refs, fetching")
