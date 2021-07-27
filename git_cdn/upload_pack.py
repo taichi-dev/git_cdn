@@ -334,8 +334,9 @@ class UploadPackHandler:
         await self.writer.write(pkt)
 
     async def flush_to_writer(self, read_func):
+        CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 32 * 1024))
         while True:
-            chunk = await read_func()
+            chunk = await read_func(CHUNK_SIZE)
             if not chunk:
                 break
             await self.writer.write(chunk)
