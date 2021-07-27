@@ -111,7 +111,6 @@ class RepoCache:
         self.lock = self.directory + b".lock"
         self.url = generate_url(upstream, path, auth)
         self.path = path
-        self.prev_mtime = None
 
     def exists(self):
         return os.path.isdir(self.directory)
@@ -120,9 +119,6 @@ class RepoCache:
         if self.exists():
             return os.path.getmtime(self.directory)
         return None
-
-    def save_mtime(self):
-        self.prev_mtime = self.mtime()
 
     def utime(self):
         os.utime(self.directory, None)
@@ -249,19 +245,22 @@ class RepoCache:
         return stdout
 
     async def update(self):
+        prev_mtime = self.mtime()
         async with self.write_lock():
             if not self.exists():
                 await self.clone()
                 await self.fetch()
-            elif self.prev_mtime == self.mtime():
+            elif prev_mtime == self.mtime():
+                # in case of race condition, it means that we are the first to take the write_lock
+                # so we fetch to update the rcache (that will update the mtime too)
+                # else, someone took the write_lock before us and so the rcache
+                # has been updated already, we do not need to do it
                 await self.fetch()
-            self.save_mtime()
 
     async def force_update(self):
         async with self.write_lock():
             await self.clone()
             await self.fetch()
-            self.save_mtime()
 
 
 class StdOutReader:
@@ -444,7 +443,6 @@ class UploadPackHandler:
 
     async def uploadPack(self, parsed_input):
         async with self.rcache.read_lock():
-            self.rcache.save_mtime()
             if self.rcache.exists():
                 if not self.sema:
                     return await self.doUploadPack(parsed_input)
