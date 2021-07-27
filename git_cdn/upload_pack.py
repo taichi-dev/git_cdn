@@ -321,6 +321,7 @@ class UploadPackHandler:
             raise
         except Exception:
             log.exception("upload pack failure")
+            raise
         finally:
             # Wait 10 min, for the shielded upload pack to terminate
             # or 2s if not caching, as the process is useless now
