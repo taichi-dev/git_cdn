@@ -407,8 +407,7 @@ class UploadPackHandler:
 
             if not_our_refs:
                 log.debug("not our refs, fetching")
-                async with self.rcache.write_lock():
-                    await self.rcache.fetch()
+                await self.rcache.update()
 
     async def execute(self, parsed_input):
         """Runs git upload-pack
