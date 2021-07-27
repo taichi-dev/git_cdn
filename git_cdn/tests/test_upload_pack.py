@@ -305,7 +305,7 @@ async def test_ensure_input_wants_in_rcache(tmpdir, loop, mocker):
     mock_update.assert_called_once()
 
 
-async def test_uploadPack_runs_well(tmpdir, loop, mocker):
+async def test_unknown_want_cache(tmpdir, loop, mocker):
     """tests that the 'uploadPack' method runs well
     when running 'execute' method with a repo with missing 'wants'
     """
