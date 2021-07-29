@@ -94,7 +94,10 @@ class UploadPackInputParserV2:
             if self.command in PROXY_COMMANDS:
                 return
             if self.command != b"fetch":
-                raise self.InputParserError(f"Invalid command: {self.command}")
+                # if we do not know the command, we assume it exists anyway
+                # we log a warning to inform us about a potential new command
+                log.warning("Unknown command", command=self.command)
+                return
 
             self.parse_args()
 
