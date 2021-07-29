@@ -444,6 +444,9 @@ class GitCDN:
         request_content = await request.content.read()
         if protocol_version == 2:
             parsed_content = UploadPackInputParserV2(request_content)
+            if parsed_content.command == b"empty request":
+                bind_contextvars(upload_pack_status="direct", empty_request=True)
+                return None
             if parsed_content.command == b"ls-refs":
                 bind_contextvars(upload_pack_status="redirect")
                 return await self.proxify_with_data(request, request_content)
