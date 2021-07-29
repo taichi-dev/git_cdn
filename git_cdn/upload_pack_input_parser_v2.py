@@ -236,7 +236,14 @@ class UploadPackInputParserV2:
     def __hash__(self):
         return int(self.hash, 16)
 
-    def __repr_(self):
+    def __repr__(self):
+        if self.command in (b"", b"empty request"):
+            return "UploadPackInputV2(command={})".format(self.command)
+        if self.command in PROXY_COMMANDS:
+            return "UploadPackInputV2(command={}, caps={})".format(
+                self.command,
+                ",".join(k + ":" + v for k, v in self.caps.items()),
+            )
         return "UploadPackInputV2(command={}, caps={}, hash='{}', haves=[{}], wants=[{}], args={}, depth={})".format(
             self.command,
             ",".join(k + ":" + v for k, v in self.caps.items()),
