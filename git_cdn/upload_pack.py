@@ -215,7 +215,7 @@ class RepoCache:
         if returncode != 0:
             raise HTTPInternalServerError(reason=stderr.decode())
 
-    async def cat_file(self, handler, refs):
+    async def cat_file(self, refs):
         stdout = None
         proc = await asyncio.create_subprocess_exec(
             "git",
@@ -228,9 +228,7 @@ class RepoCache:
             cwd=self.directory,
         )
         try:
-            refs_str = b""
-            for ref in refs:
-                refs_str += ref + b"\n"
+            refs_str = b"\n".join(refs) + b"\n"
             stdout, _ = await proc.communicate(refs_str)
         except (CancelledError, ConnectionResetError):
             bind_contextvars(canceled=True)
@@ -263,42 +261,6 @@ class RepoCache:
             await self.fetch()
 
 
-class StdOutReader:
-    CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 32 * 1024))
-
-    def __init__(self, stdout):
-        self.stdout = stdout
-        self.firstchunk = None
-
-    async def first_chunk(self):
-        self.firstchunk = await self.stdout.read(8)
-        return self.firstchunk
-
-    async def next_chunk(self):
-        return await self.stdout.read(self.CHUNK_SIZE)
-
-    async def read_chunk(self):
-        """Read the remaining output of uploadpack, and forward it to the http client"""
-        self.firstchunk, firstchunk = None, self.firstchunk
-        if firstchunk:
-            return firstchunk
-        return await self.next_chunk()
-
-    async def read(self, size):
-        self.firstchunk, firstchunk = None, self.firstchunk
-        if firstchunk:
-            if size > len(firstchunk):
-                size -= len(firstchunk)
-                data = await self.stdout.readexactly(size)
-                return firstchunk + data
-            if size == len(firstchunk):
-                return firstchunk
-            asked = firstchunk[:size]
-            self.firstchunk = firstchunk[size:]
-            return asked
-        return await self.stdout.readexactly(size)
-
-
 class UploadPackHandler:
     """Unit testable upload-pack handler
     which automatically call git fetch to update the local copy"""
@@ -319,8 +281,6 @@ class UploadPackHandler:
         self.writer = writer
         self.rcache = None
         self.pcache = None
-        self.not_our_ref = False
-        self.forward_error = False
         self.protocol_version = protocol_version
 
     @staticmethod
@@ -339,26 +299,7 @@ class UploadPackHandler:
         finally:
             proc.stdin.close()
 
-    async def check_firstchunk(self, reader, input, start_time):
-        firstchunk = await reader.first_chunk()
-        error = firstchunk[4:7] == b"ERR"
-        log.debug(
-            "firstchunk from local upload-pack",
-            firstchunk=firstchunk,
-            uperror=error,
-            input=input.input.decode()[:128],
-            cmd_duration=time.time() - start_time,
-        )
-        if error:
-            if self.forward_error:
-                await self.flush_to_writer(reader.read_chunk)
-            elif b"not our ref" in await reader.next_chunk():
-                self.not_our_ref = True
-        return error
-
     async def doUploadPack(self, input):
-        t1 = time.time()
-        self.not_our_ref = False
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
             "--stateless-rpc",
@@ -370,19 +311,17 @@ class UploadPackHandler:
         )
         try:
             await self.write_input(proc, input.input)
-            reader = StdOutReader(proc.stdout)
-            if await self.check_firstchunk(reader, input, t1):
-                return True
             if self.pcache:
-                await asyncio.shield(self.pcache.cache_pack(reader.read))
+                await asyncio.shield(self.pcache.cache_pack(proc.stdout.read))
             else:
-                await self.flush_to_writer(reader.read_chunk)
+                await self.flush_to_writer(proc.stdout.read)
         except (CancelledError, ConnectionResetError):
             bind_contextvars(canceled=True)
             log.warning("Client disconnected during upload-pack")
             raise
         except Exception:
             log.exception("upload pack failure")
+            raise
         finally:
             # Wait 10 min, for the shielded upload pack to terminate
             # or 2s if not caching, as the process is useless now
@@ -396,8 +335,9 @@ class UploadPackHandler:
         await self.writer.write(pkt)
 
     async def flush_to_writer(self, read_func):
+        CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 32 * 1024))
         while True:
-            chunk = await read_func()
+            chunk = await read_func(CHUNK_SIZE)
             if not chunk:
                 break
             await self.writer.write(chunk)
@@ -445,56 +385,37 @@ class UploadPackHandler:
         async with self.rcache.read_lock():
             if self.rcache.exists():
                 if not self.sema:
-                    return await self.doUploadPack(parsed_input)
-                async with AioSemaphore(self.sema):
-                    return await self.doUploadPack(parsed_input)
-        return True
+                    await self.doUploadPack(parsed_input)
+                else:
+                    async with AioSemaphore(self.sema):
+                        await self.doUploadPack(parsed_input)
 
-    async def check_input_wants(self, wants):
-        """Return True if all sha1 in wants are present in self.rcache"""
-        stdout = await self.rcache.cat_file(self, wants)
-        return not b"missing" in stdout
+    async def missing_want(self, wants):
+        """Return True if at least one sha1 in 'wants' is missing in self.rcache"""
+        stdout = await self.rcache.cat_file(wants)
+        return b"missing" in stdout
 
     async def ensure_input_wants_in_rcache(self, wants):
+        """Checks if all 'wants' are in rcache
+        and updates rcache if that is not the case
+        """
         if not self.rcache.exists():
             log.debug("rcache noexistent, cloning")
-            await self.rcache.force_update()
+            await self.rcache.update()
         else:
-            our_refs = False
+            not_our_refs = True
             async with self.rcache.read_lock():
-                our_refs = await self.check_input_wants(wants)
+                not_our_refs = await self.missing_want(wants)
 
-            if not our_refs:
+            if not_our_refs:
                 log.debug("not our refs, fetching")
-                async with self.rcache.write_lock():
-                    await self.rcache.fetch()
+                await self.rcache.update()
 
     async def execute(self, parsed_input):
-        """Start the process upload-pack process optimistically.
-        Fetch the first line of result to see if there is an error.
-        If there is no error, the process output is forwarded to the http client.
-        If there is an error, git fetch or git clone are done.
+        """Runs git upload-pack
+        after being insure that all 'wants' are in cache
         """
         self.rcache = RepoCache(self.path, self.auth, self.upstream)
 
         await self.ensure_input_wants_in_rcache(parsed_input.wants)
-        for loop in range(2):
-            if not await self.uploadPack(parsed_input):
-                return
-            log.warning(
-                "Upload pack failed, retry", loop=loop, missing_ref=self.not_our_ref
-            )
-            await self.rcache.update()
-
-        # in case of "not our ref" error, do not clone the whole repo again
-        # go directly to forward the error to client
-        if not self.not_our_ref:
-            if not await self.uploadPack(parsed_input):
-                return
-
-            log.warning("Last Try, remove repo, and clone", loop=2, repo_path=self.path)
-            await self.rcache.force_update()
-
-        # Last try, forward all errors to the client
-        self.forward_error = True
         await self.uploadPack(parsed_input)

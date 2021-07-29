@@ -156,62 +156,6 @@ async def test_fetch_needed(tmpdir, loop):
     assert_upload_ok(writer.output)
 
 
-async def test_unknown_want(tmpdir, loop):
-    writer = FakeStreamWriter()
-    proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
-    )
-
-    content = UploadPackInputParser(
-        CLONE_INPUT.replace(
-            b"4284b1521b200ba4934ee710a4a538549f1f0f97",
-            b"300a8ae00a1b532ed2364437273221e6c696e0c4",
-        )
-    )
-    await proc.run(content)
-    full = writer.output
-    # if fails the most probable issue comes from git version (must have >= 2.16)
-    assert b"ERR upload-pack: not our ref" in full
-
-
-async def test_unknown_want2(tmpdir, loop):
-    writer = FakeStreamWriter()
-    proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
-    )
-    parsed_input = UploadPackInputParser(
-        CLONE_INPUT.replace(
-            b"4284b1521b200ba4934ee710a4a538549f1f0f97",
-            b"300a8ae00a1b532ed2364437273221e6c696e0c4",
-        )
-    )
-
-    proc.rcache = RepoCache(proc.path, proc.auth, proc.upstream)
-
-    await proc.rcache.update()
-    assert await proc.uploadPack(parsed_input) is True
-    assert proc.not_our_ref is True
-
-
-async def test_unknown_want_cache(tmpdir, loop, monkeypatch):
-    monkeypatch.setenv("PACK_CACHE_MULTI", "true")
-    writer = FakeStreamWriter()
-    proc = UploadPackHandler(
-        MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
-    )
-
-    content = UploadPackInputParser(
-        CLONE_INPUT.replace(
-            b"4284b1521b200ba4934ee710a4a538549f1f0f97",
-            b"300a8ae00a1b532ed2364437273221e6c696e0c4",
-        )
-    )
-    await proc.run(content)
-    full = writer.output
-    # if fails the most probable issue comes from git version (must have >= 2.16)
-    assert b"ERR upload-pack: not our ref" in full
-
-
 async def test_shallow(tmpdir, loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
@@ -297,26 +241,26 @@ async def test_flush_input(tmpdir, loop):
 
 
 @pytest.mark.parametrize(
-    "ref, in_repo",
+    "ref, missing_ref",
     [
         (
             [
                 b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
                 b"4284b1521b200ba4934ee710a4a538549f1f0f97",
             ],
-            True,
+            False,
         ),
         (
             [
                 b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
                 b"4284b1521b200ba4934ee710a4a538549f1f0f96",
             ],
-            False,
+            True,
         ),
     ],
     ids=["all refs in repo", "missing refs in repo"],
 )
-async def test_check_input_wants(tmpdir, loop, ref, in_repo):
+async def test_missing_want(tmpdir, loop, ref, missing_ref):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
         MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
@@ -325,7 +269,7 @@ async def test_check_input_wants(tmpdir, loop, ref, in_repo):
     proc.rcache = RepoCache(proc.path, proc.auth, proc.upstream)
 
     await proc.rcache.update()
-    assert (await proc.check_input_wants(ref)) == in_repo
+    assert (await proc.missing_want(ref)) == missing_ref
 
 
 async def test_ensure_input_wants_in_rcache(tmpdir, loop, mocker):
@@ -353,22 +297,15 @@ async def test_ensure_input_wants_in_rcache(tmpdir, loop, mocker):
     )
 
     assert proc.rcache.exists()
-    mock_fetch = mocker.patch.object(proc.rcache, "fetch")
-    mock_update = mocker.patch.object(proc.rcache, "force_update")
+    mock_missing_want = mocker.patch.object(proc, "missing_want")
+    mock_update = mocker.patch.object(proc.rcache, "update")
 
     await proc.ensure_input_wants_in_rcache(wants)
-    mock_fetch.assert_called_once()
-    mock_update.assert_not_called()
+    mock_missing_want.assert_called_once()
+    mock_update.assert_called_once()
 
 
-async def execute(proc, parsed_input):
-    await proc.ensure_input_wants_in_rcache(parsed_input.wants)
-    if not await proc.uploadPack(parsed_input):
-        return
-    await proc.rcache.update()
-
-
-async def test_uploadPack_runs_well(tmpdir, loop, mocker):
+async def test_unknown_want_cache(tmpdir, loop, mocker):
     """tests that the 'uploadPack' method runs well
     when running 'execute' method with a repo with missing 'wants'
     """
@@ -392,7 +329,8 @@ async def test_uploadPack_runs_well(tmpdir, loop, mocker):
         )
     )
     assert proc.rcache.exists()
-    mock_update = mocker.patch.object(proc.rcache, "update")
-
-    await execute(proc, parsed_input)
-    mock_update.assert_not_called()
+    try:
+        await proc.execute(parsed_input)
+    except Exception:
+        assert False
+    assert True
