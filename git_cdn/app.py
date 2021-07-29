@@ -444,12 +444,12 @@ class GitCDN:
         request_content = await request.content.read()
         if protocol_version == 2:
             parsed_content = UploadPackInputParserV2(request_content)
-            if parsed_content.command is None:
-                bind_contextvars(upload_pack_status="direct", command=None)
-                return None
             if parsed_content.command != b"fetch":
                 bind_contextvars(
-                    upload_pack_status="direct", command=parsed_content.command.decode()
+                    upload_pack_status="direct",
+                    command=parsed_content.command.decode()
+                    if parsed_content.command is not None
+                    else None,
                 )
                 return await self.proxify_with_data(request, request_content)
             bind_contextvars(command="fetch")
