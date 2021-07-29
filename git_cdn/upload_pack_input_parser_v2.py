@@ -14,10 +14,18 @@ from git_cdn.packet_line import PacketLineParser
 log = getLogger()
 
 GIT_CAPS = {  # https://git-scm.com/docs/protocol-v2/en#_capabilities
+    # without commands
     b"agent",
     b"server-option",
     b"object-format",
     b"session-id",
+}
+
+PROXY_COMMANDS = {
+    b"ls-refs",
+    b"object-info",
+    # + None (empty request) that will return no response (None)
+    None,
 }
 
 FEATURES = {
@@ -31,7 +39,6 @@ FEATURES = {
 }
 
 ARGS = {
-    # fetch command
     b"want",
     b"have",
     b"done",
@@ -84,10 +91,13 @@ class UploadPackInputParserV2:
 
             if self.command == b"":
                 raise self.InputParserError("Missing keyword 'command'")
-            if self.command in (b"ls-refs", b"empty request"):
+            if self.command in PROXY_COMMANDS:
                 return
             if self.command != b"fetch":
-                raise self.InputParserError(f"Invalid command: {self.command}")
+                # if we do not know the command, we assume it exists anyway
+                # we log a warning to inform us about a potential new command
+                log.warning("Unknown command", command=self.command)
+                return
 
             self.parse_args()
 
@@ -154,7 +164,7 @@ class UploadPackInputParserV2:
 
         pkt = next(self.parser)
         if pkt == FLUSH_PKT:
-            self.command = b"empty request"
+            self.command = None
             return
 
         while pkt not in (
@@ -177,6 +187,12 @@ class UploadPackInputParserV2:
             # because some clients send the command in the middle of the caps
             # even if it is not documented like that
             if k == b"command":
+                if self.command != b"":
+                    raise self.InputParserError(
+                        "Found two commands ({} and {}) instead of one".format(
+                            self.command.decode(), v.decode()
+                        )
+                    )
                 self.command = v
             else:
                 if k not in GIT_CAPS:
@@ -220,7 +236,14 @@ class UploadPackInputParserV2:
     def __hash__(self):
         return int(self.hash, 16)
 
-    def __repr_(self):
+    def __repr__(self):
+        if self.command in (b"", None):
+            return "UploadPackInputV2(command={})".format(self.command)
+        if self.command in PROXY_COMMANDS:
+            return "UploadPackInputV2(command={}, caps={})".format(
+                self.command,
+                ",".join(k + ":" + v for k, v in self.caps.items()),
+            )
         return "UploadPackInputV2(command={}, caps={}, hash='{}', haves=[{}], wants=[{}], args={}, depth={})".format(
             self.command,
             ",".join(k + ":" + v for k, v in self.caps.items()),

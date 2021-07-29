@@ -297,3 +297,15 @@ def test_input_with_two_delim_pkt():
         "input": input.decode(),
         "hash": ANYSTRING,
     }
+
+
+def test_input_with_two_commands():
+    input = INPUT_FETCH.replace(
+        b"0011command=fetch", b"0011command=fetch0014command=ls-refs"
+    )
+    parser = UploadPackInputParserV2(input)
+    assert parser.as_dict == {
+        "parse_error": True,
+        "input": input.decode(),
+        "hash": ANYSTRING,
+    }

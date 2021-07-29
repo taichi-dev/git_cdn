@@ -155,7 +155,7 @@ class UploadPackInputParser:
     def __hash__(self):
         return int(self.hash, 16)
 
-    def __repr_(self):
+    def __repr__(self):
         return "UploadPackInput(wants=[{}], haves=[{}], caps={}, hash='{}', depth={})".format(
             ",".join(self.wants),
             ",".join(self.haves),
