@@ -14,10 +14,18 @@ from git_cdn.packet_line import PacketLineParser
 log = getLogger()
 
 GIT_CAPS = {  # https://git-scm.com/docs/protocol-v2/en#_capabilities
+    # without commands
     b"agent",
     b"server-option",
     b"object-format",
     b"session-id",
+}
+
+PROXY_COMMANDS = {
+    b"ls-refs",
+    b"object-info",
+    # + empty request that will return no response (None)
+    b"empty request",
 }
 
 FEATURES = {
@@ -31,7 +39,6 @@ FEATURES = {
 }
 
 ARGS = {
-    # fetch command
     b"want",
     b"have",
     b"done",
@@ -84,7 +91,7 @@ class UploadPackInputParserV2:
 
             if self.command == b"":
                 raise self.InputParserError("Missing keyword 'command'")
-            if self.command in (b"ls-refs", b"empty request"):
+            if self.command in PROXY_COMMANDS:
                 return
             if self.command != b"fetch":
                 raise self.InputParserError(f"Invalid command: {self.command}")
