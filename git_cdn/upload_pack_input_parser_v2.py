@@ -24,8 +24,8 @@ GIT_CAPS = {  # https://git-scm.com/docs/protocol-v2/en#_capabilities
 PROXY_COMMANDS = {
     b"ls-refs",
     b"object-info",
-    # + empty request that will return no response (None)
-    b"empty request",
+    # + None (empty request) that will return no response (None)
+    None,
 }
 
 FEATURES = {
@@ -164,7 +164,7 @@ class UploadPackInputParserV2:
 
         pkt = next(self.parser)
         if pkt == FLUSH_PKT:
-            self.command = b"empty request"
+            self.command = None
             return
 
         while pkt not in (
@@ -237,7 +237,7 @@ class UploadPackInputParserV2:
         return int(self.hash, 16)
 
     def __repr__(self):
-        if self.command in (b"", b"empty request"):
+        if self.command in (b"", None):
             return "UploadPackInputV2(command={})".format(self.command)
         if self.command in PROXY_COMMANDS:
             return "UploadPackInputV2(command={}, caps={})".format(

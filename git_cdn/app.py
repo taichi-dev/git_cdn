@@ -444,7 +444,7 @@ class GitCDN:
         request_content = await request.content.read()
         if protocol_version == 2:
             parsed_content = UploadPackInputParserV2(request_content)
-            if parsed_content.command == b"empty request":
+            if parsed_content.command is None:
                 bind_contextvars(upload_pack_status="direct", empty_request=True)
                 return None
             if parsed_content.command != b"fetch":
