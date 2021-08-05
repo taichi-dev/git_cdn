@@ -312,7 +312,7 @@ class UploadPackHandler:
         try:
             await self.write_input(proc, input.input)
             if self.pcache:
-                await asyncio.shield(self.pcache.cache_pack(proc.stdout.read))
+                await asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly))
             else:
                 await self.flush_to_writer(proc.stdout.read)
         except (CancelledError, ConnectionResetError):
