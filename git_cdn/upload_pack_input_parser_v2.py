@@ -228,9 +228,6 @@ class UploadPackInputParserV2:
 
                 if k == b"done":
                     self.done = True
-                if b"deep" in k:
-                    self.depth = True
-                    self.depth_lines.append(k)
 
             if k not in ARGS:
                 log.warning(f"unknown arg: {k!r}")
