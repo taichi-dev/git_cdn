@@ -40,6 +40,48 @@ HASH_WITH_OBJECT_FORMAT = (
     "2a46d98d04e4867c7e4d40efb7919ec117319c55ff2322bb9bb00daa44201089"
 )
 
+INPUT_WITH_DEPTH = (
+    b"0016object-format=sha10011command=fetch0014agent=git/2.28.00001"
+    b"000dthin-pack000fno-progress000finclude-tag000dofs-delta0"
+    b"00cdeepen 10032want 2b05463665b52df44b052c02e05c21fa8eab0f60\n"
+    b"0032want 2b05463665b52df44b052c02e05c21fa8eab0f60\n0009done\n0000"
+)
+
+
+def test_parse_input_with_depth():
+    parser = UploadPackInputParserV2(INPUT_WITH_DEPTH)
+
+    assert parser.command == b"fetch"
+
+    assert parser.haves == set()
+    assert parser.wants == {
+        b"2b05463665b52df44b052c02e05c21fa8eab0f60",
+    }
+    assert parser.done
+    assert not parser.filter
+    assert parser.depth
+    assert parser.depth_lines == [b"deepen 1"]
+
+    assert parser.caps == {b"agent": b"git/2.28.0", b"object-format": b"sha1"}
+
+    # assert parser.hash == HASH_FETCH
+    assert parser.as_dict == {
+        "caps": "agent object-format",
+        "hash": "1fbd1e5a",
+        "agent": "git/2.28.0",
+        "parse_error": False,
+        "haves": "",
+        "wants": "2b054636",
+        "num_haves": 0,
+        "num_wants": 1,
+        "args": "done include-tag no-progress ofs-delta thin-pack",
+        "clone": True,
+        "single_branch": True,
+        "done": True,
+        "filter": False,
+        "depth": True,
+    }
+
 
 def test_parse_input_with_fetch():
     parser = UploadPackInputParserV2(INPUT_FETCH)
