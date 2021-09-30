@@ -105,6 +105,7 @@ def generate_url(base, path, auth=None):
 
 class RepoCache:
     def __init__(self, path, auth, upstream):
+        path = path.lower()
         git_cache_dir = get_subdir("git")
         self.directory = os.path.join(git_cache_dir, path).encode()
         self.auth = auth
