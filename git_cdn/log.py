@@ -141,12 +141,19 @@ def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
     bind_threadlocal(uuid=str(uuid.uuid4()))
 
 
+g_log_configured = False
+
+
 def enable_console_logs():
+    global g_log_configured
+
+    if g_log_configured:
+        return
+    g_log_configured = True
     shared_processors = [
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.contextvars.merge_contextvars,
         structlog.processors.TimeStamper(fmt="%H:%M.%S"),
     ]
 
