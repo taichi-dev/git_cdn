@@ -37,7 +37,7 @@ class BasePrune:
 
     @property
     def age(self):
-        return (NOW - self.atime).days
+        return (NOW - self.mtime).days
 
     @property
     def size_fmt(self):
@@ -48,16 +48,13 @@ class GitRepo(BasePrune):
     def __init__(self, directory):
         self.lockfile = directory.path + ".lock"
         self.path = directory.path
-        self.head = os.path.join(self.path, "HEAD")
-        self._atime = None
+        self._mtime = None
         self._size = None
 
     @property
-    def atime(self):
-        if self._atime is None:
-            atime = os.stat(self.head).st_atime
-            self._atime = datetime.fromtimestamp(atime)
-        return self._atime
+    def mtime(self):
+        mtime = os.stat(self.lockfile).st_mtime
+        return datetime.fromtimestamp(mtime)
 
     @property
     def size(self):
@@ -81,19 +78,23 @@ def find_git_repo(s):
     repos = [d for d in dir_entries if d.name.endswith(".git")]
     git_repos = [GitRepo(d) for d in repos]
     for subgroup in subgroups:
-        for g in find_git_repo(subgroup):
-            yield g
+        yield from find_git_repo(subgroup)
     for g in git_repos:
         yield g
 
 
-def atime(g):
-    return g.atime
+def mtime(g):
+    return g.mtime
+
+
+def find_older_repo(older_than):
+    git_dirs = [g for g in find_git_repo("git") if g.age > older_than]
+    git_dirs.sort(key=mtime)
+    return git_dirs
 
 
 def clean_git_repo(older_than, verbose, delete):
-    git_dirs = [g for g in find_git_repo("git") if g.age > older_than]
-    git_dirs.sort(key=atime)
+    git_dirs = find_older_repo(older_than)
 
     if verbose:
         for g in git_dirs:
@@ -115,13 +116,13 @@ class LfsFile(BasePrune):
         self.file = file
         self.path = file.path
         self.lock = file.path + ".lock"
-        self._atime = None
+        self._mtime = None
 
     @property
-    def atime(self):
-        if self._atime is None:
-            self._atime = datetime.fromtimestamp(self.file.stat().st_atime)
-        return self._atime
+    def mtime(self):
+        if self._mtime is None:
+            self._mtime = datetime.fromtimestamp(self.file.stat().st_mtime)
+        return self._mtime
 
     @property
     def size(self):
@@ -162,7 +163,7 @@ def find_lfs(s):
 def clean_lfs(older_than, verbose, delete):
     lfs_files = [f for f in find_lfs("lfs") if f.age > older_than]
 
-    lfs_files.sort(key=atime)
+    lfs_files.sort(key=mtime)
 
     if verbose:
         for f in lfs_files:
@@ -183,13 +184,13 @@ class BundleFile(BasePrune):
         self.path = file.path
         # remove "_clone.bundle" and add ".lock"
         self.lock = file.path[:-13] + ".lock"
-        self._atime = None
+        self._mtime = None
 
     @property
-    def atime(self):
-        if self._atime is None:
-            self._atime = datetime.fromtimestamp(self.file.stat().st_atime)
-        return self._atime
+    def mtime(self):
+        if self._mtime is None:
+            self._mtime = datetime.fromtimestamp(self.file.stat().st_mtime)
+        return self._mtime
 
     @property
     def size(self):
@@ -212,7 +213,7 @@ def find_bundle():
 
 def clean_bundle(older_than, verbose, delete):
     bundles = [f for f in find_bundle() if f.age > older_than]
-    bundles.sort(key=atime)
+    bundles.sort(key=mtime)
 
     if verbose:
         for f in bundles:
