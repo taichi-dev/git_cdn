@@ -95,7 +95,6 @@ class PackCache:
                 async for data in pkt_parser:
                     f.write(data)
             except Exception:
-                # don't need to raise, if the file is not present, we will try again
                 log.exception(
                     "Aborting cache_pack", hash=self.hash, filename=self.filename
                 )

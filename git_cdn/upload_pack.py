@@ -73,9 +73,7 @@ async def write_input(proc, input):
     except BrokenPipeError:
         # This occur with large input, and upload pack return an early error
         # like "not our ref"
-        log.warning(
-            "Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid
-        )
+        log.warning("Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid)
     finally:
         proc.stdin.close()
 
