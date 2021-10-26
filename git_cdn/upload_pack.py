@@ -64,6 +64,22 @@ async def wait_proc(proc, cmd, timeout):
     return False
 
 
+async def write_input(proc, input):
+    try:
+        proc.stdin.write(input)
+        await proc.stdin.drain()
+    except RuntimeError:
+        log.exception("exception while writing to upload-pack stdin")
+    except BrokenPipeError:
+        # This occur with large input, and upload pack return an early error
+        # like "not our ref"
+        log.warning(
+            "Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid
+        )
+    finally:
+        proc.stdin.close()
+
+
 async def ensure_proc_terminated(
     proc: Process, cmd: str, timeout=GIT_PROCESS_WAIT_TIMEOUT
 ):
@@ -229,7 +245,7 @@ class RepoCache:
         )
         try:
             refs_str = b"\n".join(refs) + b"\n"
-            stdout, _ = await proc.communicate(refs_str)
+            stdout, stderr = await proc.communicate(refs_str)
         except (
             asyncio.CancelledError,
             CancelledError,
@@ -242,7 +258,7 @@ class RepoCache:
             raise
         finally:
             await ensure_proc_terminated(proc, "git cat-file", GIT_PROCESS_WAIT_TIMEOUT)
-            log.debug("cat-file done", pid=proc.pid)
+            log.debug("cat-file done", pid=proc.pid, cmd_stderr=stderr[:128])
         return stdout
 
     async def update(self):
@@ -281,22 +297,6 @@ class UploadPackHandler:
         self.pcache = None
         self.protocol_version = protocol_version
 
-    @staticmethod
-    async def write_input(proc, input):
-        try:
-            proc.stdin.write(input)
-            await proc.stdin.drain()
-        except RuntimeError:
-            log.exception("exception while writing to upload-pack stdin")
-        except BrokenPipeError:
-            # This occur with large input, and upload pack return an early error
-            # like "not our ref"
-            log.warning(
-                "Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid
-            )
-        finally:
-            proc.stdin.close()
-
     async def doUploadPack(self, input):
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
@@ -308,11 +308,16 @@ class UploadPackHandler:
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            await self.write_input(proc, input.input)
             if self.pcache:
-                await asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly))
+                await asyncio.gather(
+                    write_input(proc, input.input),
+                    asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly)),
+                )
             else:
-                await self.flush_to_writer(proc.stdout.read)
+                await asyncio.gather(
+                    write_input(proc, input.input),
+                    self.flush_to_writer(proc.stdout.read),
+                )
         except (
             asyncio.CancelledError,
             CancelledError,
