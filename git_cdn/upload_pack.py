@@ -255,11 +255,6 @@ class RepoCache:
                 # has been updated already, we do not need to do it
                 await self.fetch()
 
-    async def force_update(self):
-        async with self.write_lock():
-            await self.clone()
-            await self.fetch()
-
 
 class UploadPackHandler:
     """Unit testable upload-pack handler
