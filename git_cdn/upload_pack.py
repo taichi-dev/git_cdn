@@ -150,13 +150,18 @@ class RepoCache:
         t1 = time.time()
 
         log.debug("git_cmd start", cmd=args)
-        fetch_proc = await asyncio.create_subprocess_exec(
-            "git",
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout_data, stderr_data = await fetch_proc.communicate()
+        try:
+            fetch_proc = await asyncio.create_subprocess_exec(
+                "git",
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout_data, stderr_data = await fetch_proc.communicate()
+        except asyncio.exceptions.CancelledError:
+            # on client cancel, keep git command alive until the end to keep the write_lock if taken
+            stdout_data, stderr_data = await fetch_proc.communicate()
+            raise
         await ensure_proc_terminated(fetch_proc, str(args))
         # prevent logging of the creds
         stdout_data = stdout_data.replace(self.auth.encode(), b"<XX>")
@@ -167,8 +172,8 @@ class RepoCache:
         log.debug(
             "git_cmd done",
             cmd=args,
-            stdout_data=stdout_data.decode(errors="replace"),
-            stderr_data=stderr_data.decode(errors="replace"),
+            stdout_data=stdout_data.decode(errors="replace")[:128],
+            stderr_data=stderr_data.decode(errors="replace")[:128],
             rc=fetch_proc.returncode,
             pid=fetch_proc.pid,
             cmd_duration=time.time() - t1,
