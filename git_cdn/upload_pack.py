@@ -230,9 +230,12 @@ class RepoCache:
         try:
             refs_str = b"\n".join(refs) + b"\n"
             stdout, _ = await proc.communicate(refs_str)
-        except (CancelledError, ConnectionResetError):
+        except (
+            asyncio.CancelledError,
+            CancelledError,
+            ConnectionResetError,
+        ):
             bind_contextvars(canceled=True)
-            log.warning("Client disconnected during cat-file")
             raise
         except Exception:
             log.exception("cat-file failure")
@@ -310,7 +313,11 @@ class UploadPackHandler:
                 await asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly))
             else:
                 await self.flush_to_writer(proc.stdout.read)
-        except (CancelledError, ConnectionResetError):
+        except (
+            asyncio.CancelledError,
+            CancelledError,
+            ConnectionResetError,
+        ):
             bind_contextvars(canceled=True)
             log.warning("Client disconnected during upload-pack")
             raise
