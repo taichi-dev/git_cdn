@@ -93,8 +93,6 @@ devel: dev
 develop: dev
 styles: style
 test-unit: test
-unittest: unit
-unittests: unit
 unit-tests: test
 ut: test
 
