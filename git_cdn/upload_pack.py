@@ -117,6 +117,15 @@ def generate_url(base, path, auth=None):
     return url
 
 
+async def exec_git(*args):
+    return await asyncio.create_subprocess_exec(
+        "git",
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+
 class RepoCache:
     def __init__(self, path, auth, upstream):
         git_cache_dir = get_subdir("git")
@@ -150,34 +159,33 @@ class RepoCache:
         t1 = time.time()
 
         log.debug("git_cmd start", cmd=args)
+        stdout_data = b""
+        stderr_data = b""
         try:
-            git_proc = await asyncio.create_subprocess_exec(
-                "git",
-                *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+            git_proc = await exec_git(*args)
             stdout_data, stderr_data = await git_proc.communicate()
         except asyncio.exceptions.CancelledError:
             # on client cancel, keep git command alive until the end to keep the write_lock if taken
+            # caution the stdout/stderr before the cancel has been lost
             stdout_data, stderr_data = await git_proc.communicate()
             raise
-        await ensure_proc_terminated(git_proc, str(args))
-        # prevent logging of the creds
-        stdout_data = stdout_data.replace(self.auth.encode(), b"<XX>")
-        stderr_data = stderr_data.replace(self.auth.encode(), b"<XX>")
-        if b"HTTP Basic: Access denied" in stderr_data:
-            raise HTTPUnauthorized(reason=stderr_data)
+        finally:
+            await ensure_proc_terminated(git_proc, str(args))
+            # prevent logging of the creds
+            stdout_data = stdout_data.replace(self.auth.encode(), b"<XX>")
+            stderr_data = stderr_data.replace(self.auth.encode(), b"<XX>")
+            if b"HTTP Basic: Access denied" in stderr_data:
+                raise HTTPUnauthorized(reason=stderr_data)
 
-        log.debug(
-            "git_cmd done",
-            cmd=args,
-            stdout_data=stdout_data.decode(errors="replace")[:128],
-            stderr_data=stderr_data.decode(errors="replace")[:128],
-            rc=git_proc.returncode,
-            pid=git_proc.pid,
-            cmd_duration=time.time() - t1,
-        )
+            log.debug(
+                "git_cmd done",
+                cmd=args,
+                stdout_data=stdout_data.decode(errors="replace")[:128],
+                stderr_data=stderr_data.decode(errors="replace")[:128],
+                rc=git_proc.returncode,
+                pid=git_proc.pid,
+                cmd_duration=time.time() - t1,
+            )
         return stdout_data, stderr_data, git_proc.returncode
 
     async def fetch(self):
