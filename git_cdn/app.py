@@ -299,8 +299,9 @@ class GitCDN:
         """We implement the routing manually
         because iohttp routing may not handle the requirements"""
         path = request.path
+        path = path.lower()
         method = request.method.lower()
-        git_path = find_gitpath(request.path)
+        git_path = find_gitpath(path)
         clear_contextvars()
         bind_contextvars(ctx={"uuid": str(uuid.uuid4()), "path": str(git_path)})
 
@@ -321,6 +322,8 @@ class GitCDN:
         log.debug(
             "handling response",
             request_path=request.path,
+            path=path,
+            git_path=git_path,
             request_headers_dict=h,
             parallel_request=parallel_request,
         )
