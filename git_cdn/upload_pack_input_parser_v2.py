@@ -217,6 +217,9 @@ class UploadPackInputParserV2:
                     self.haves.add(v)
                 elif k == b"want":
                     self.wants.add(v)
+                elif b"deep" in k:
+                    self.depth = True
+                    self.depth_lines.append(line)
                 else:
                     self.args[k] = v
             else:
@@ -230,7 +233,7 @@ class UploadPackInputParserV2:
                     self.depth_lines.append(k)
 
             if k not in ARGS:
-                log.warning("unknown arg: %r", k)
+                log.warning(f"unknown arg: {k!r}")
             pkt = next(self.parser)
 
     def __hash__(self):
@@ -246,11 +249,11 @@ class UploadPackInputParserV2:
             )
         return "UploadPackInputV2(command={}, caps={}, hash='{}', haves=[{}], wants=[{}], args={}, depth={})".format(
             self.command,
-            ",".join(k + ":" + v for k, v in self.caps.items()),
+            b",".join(k + b":" + v for k, v in self.caps.items()).decode(),
             self.hash,
             ",".join(self.haves),
-            ",".join(self.wants),
-            ",".join(k + ":" + v for k, v in self.args.items()),
+            b",".join([w for w in self.wants]).decode(),
+            ",".join(k.decode() + ":" + str(v) for k, v in self.args.items()),
             self.depth,
         )
 
