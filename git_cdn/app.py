@@ -366,7 +366,7 @@ class GitCDN:
         try:
             parallel_request += 1
             return await self._routing_handler(request)
-        except CancelledError:
+        except (asyncio.CancelledError, CancelledError):
             bind_contextvars(canceled=True)
             log.warning("request canceled", resp_time=time.time() - start_time)
             raise
@@ -425,7 +425,7 @@ class GitCDN:
             )
             error_text = "Bad gateway"
             error_code = 502
-        except CancelledError:
+        except (asyncio.CancelledError, CancelledError):
             raise
         except Exception:
             log.exception("Unexpected exception from aiohttp client")
@@ -503,7 +503,7 @@ class GitCDN:
                 protocol_version=protocol_version,
             )
             await proc.run(parsed_content)
-        except CancelledError:
+        except (asyncio.CancelledError, CancelledError):
             bind_contextvars(canceled=True)
             raise
         except ConnectionResetError:

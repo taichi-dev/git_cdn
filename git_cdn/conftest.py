@@ -18,7 +18,7 @@ CREDS = os.getenv("CREDS", "gitlab-ci-token:{}".format(os.getenv("CI_JOB_TOKEN")
 
 @pytest.fixture
 def tmpworkdir(tmpdir):
-    git_cdn.util.WORKDIR = tmpdir
+    git_cdn.util.WORKDIR = tmpdir / "gitCDN"
     yield tmpdir
 
 

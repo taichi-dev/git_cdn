@@ -8,10 +8,10 @@ import uuid
 import pytest
 from aiohttp.helpers import BasicAuth
 
-from git_cdn.tests.conftest import CREDS
-from git_cdn.tests.conftest import GITLAB_REPO_TEST_GROUP
-from git_cdn.tests.conftest import GITSERVER_UPSTREAM
-from git_cdn.tests.conftest import MANIFEST_PATH
+from git_cdn.conftest import CREDS
+from git_cdn.conftest import GITLAB_REPO_TEST_GROUP
+from git_cdn.conftest import GITSERVER_UPSTREAM
+from git_cdn.conftest import MANIFEST_PATH
 
 
 async def test_bad_url(make_client, loop, app):

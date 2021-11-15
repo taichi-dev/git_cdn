@@ -64,6 +64,21 @@ async def wait_proc(proc, cmd, timeout):
     return False
 
 
+async def write_input(proc, input):
+    try:
+        proc.stdin.write(input)
+        await proc.stdin.drain()
+    except RuntimeError:
+        log.exception("exception while writing to upload-pack stdin")
+        raise
+    except BrokenPipeError:
+        # This occur with large input, and upload pack return an early error
+        # like "not our ref"
+        log.warning("Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid)
+    finally:
+        proc.stdin.close()
+
+
 async def ensure_proc_terminated(
     proc: Process, cmd: str, timeout=GIT_PROCESS_WAIT_TIMEOUT
 ):
@@ -103,6 +118,15 @@ def generate_url(base, path, auth=None):
     return url
 
 
+async def exec_git(*args):
+    return await asyncio.create_subprocess_exec(
+        "git",
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+
 class RepoCache:
     def __init__(self, path, auth, upstream):
         git_cache_dir = get_subdir("git")
@@ -136,30 +160,42 @@ class RepoCache:
         t1 = time.time()
 
         log.debug("git_cmd start", cmd=args)
-        fetch_proc = await asyncio.create_subprocess_exec(
-            "git",
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout_data, stderr_data = await fetch_proc.communicate()
-        await ensure_proc_terminated(fetch_proc, str(args))
-        # prevent logging of the creds
-        stdout_data = stdout_data.replace(self.auth.encode(), b"<XX>")
-        stderr_data = stderr_data.replace(self.auth.encode(), b"<XX>")
-        if b"HTTP Basic: Access denied" in stderr_data:
-            raise HTTPUnauthorized(reason=stderr_data)
+        stdout_data = b""
+        stderr_data = b""
+        try:
+            git_proc = await exec_git(*args)
+            stdout_data, stderr_data = await git_proc.communicate()
+        except (
+            asyncio.CancelledError,
+            CancelledError,
+            ConnectionResetError,
+        ):
+            # on client cancel, keep git command alive until the end to keep the write_lock if taken
+            # caution the stdout/stderr before the cancel has been lost
+            stdout_data, stderr_data = await git_proc.communicate()
+            raise
+        finally:
+            await ensure_proc_terminated(git_proc, str(args))
+            # prevent logging of the creds
+            stdout_data = stdout_data.replace(
+                self.auth.encode(), self.auth.encode()[:2] + b"<XX>"
+            )
+            stderr_data = stderr_data.replace(
+                self.auth.encode(), self.auth.encode()[:2] + b"<XX>"
+            )
+            if b"HTTP Basic: Access denied" in stderr_data:
+                raise HTTPUnauthorized(reason=stderr_data)
 
-        log.debug(
-            "git_cmd done",
-            cmd=args,
-            stdout_data=stdout_data.decode(errors="replace"),
-            stderr_data=stderr_data.decode(errors="replace"),
-            rc=fetch_proc.returncode,
-            pid=fetch_proc.pid,
-            cmd_duration=time.time() - t1,
-        )
-        return stdout_data, stderr_data, fetch_proc.returncode
+            log.debug(
+                "git_cmd done",
+                cmd=args,
+                stdout_data=stdout_data.decode(errors="replace")[:128],
+                stderr_data=stderr_data.decode(errors="replace")[:128],
+                rc=git_proc.returncode,
+                pid=git_proc.pid,
+                cmd_duration=time.time() - t1,
+            )
+        return stdout_data, stderr_data, git_proc.returncode
 
     async def fetch(self):
         for timeout in backoff(BACKOFF_START, BACKOFF_COUNT):
@@ -229,17 +265,20 @@ class RepoCache:
         )
         try:
             refs_str = b"\n".join(refs) + b"\n"
-            stdout, _ = await proc.communicate(refs_str)
-        except (CancelledError, ConnectionResetError):
+            stdout, stderr = await proc.communicate(refs_str)
+        except (
+            asyncio.CancelledError,
+            CancelledError,
+            ConnectionResetError,
+        ):
             bind_contextvars(canceled=True)
-            log.warning("Client disconnected during cat-file")
             raise
         except Exception:
             log.exception("cat-file failure")
             raise
         finally:
             await ensure_proc_terminated(proc, "git cat-file", GIT_PROCESS_WAIT_TIMEOUT)
-            log.debug("cat-file done", pid=proc.pid)
+            log.debug("cat-file done", pid=proc.pid, cmd_stderr=stderr[:128])
         return stdout
 
     async def update(self):
@@ -254,11 +293,6 @@ class RepoCache:
                 # else, someone took the write_lock before us and so the rcache
                 # has been updated already, we do not need to do it
                 await self.fetch()
-
-    async def force_update(self):
-        async with self.write_lock():
-            await self.clone()
-            await self.fetch()
 
 
 class UploadPackHandler:
@@ -283,22 +317,6 @@ class UploadPackHandler:
         self.pcache = None
         self.protocol_version = protocol_version
 
-    @staticmethod
-    async def write_input(proc, input):
-        try:
-            proc.stdin.write(input)
-            await proc.stdin.drain()
-        except RuntimeError:
-            log.exception("exception while writing to upload-pack stdin")
-        except BrokenPipeError:
-            # This occur with large input, and upload pack return an early error
-            # like "not our ref"
-            log.warning(
-                "Ignoring BrokenPipeError, while writing to stdin", pid=proc.pid
-            )
-        finally:
-            proc.stdin.close()
-
     async def doUploadPack(self, input):
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
@@ -310,12 +328,21 @@ class UploadPackHandler:
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            await self.write_input(proc, input.input)
             if self.pcache:
-                await asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly))
+                await asyncio.gather(
+                    write_input(proc, input.input),
+                    asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly)),
+                )
             else:
-                await self.flush_to_writer(proc.stdout.read)
-        except (CancelledError, ConnectionResetError):
+                await asyncio.gather(
+                    write_input(proc, input.input),
+                    self.flush_to_writer(proc.stdout.read),
+                )
+        except (
+            asyncio.CancelledError,
+            CancelledError,
+            ConnectionResetError,
+        ):
             bind_contextvars(canceled=True)
             log.warning("Client disconnected during upload-pack")
             raise

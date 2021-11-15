@@ -3,8 +3,8 @@
 import aiohttp
 from aiohttp.helpers import BasicAuth
 
-from git_cdn.tests.conftest import CREDS
-from git_cdn.tests.conftest import MANIFEST_PATH
+from git_cdn.conftest import CREDS
+from git_cdn.conftest import MANIFEST_PATH
 
 
 async def test_proxy_connection_issue(make_client, loop, app, mocker):

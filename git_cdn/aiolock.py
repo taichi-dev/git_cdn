@@ -217,6 +217,9 @@ class FLock:
         return self._release()
 
     def _release(self):
+        if os.path.exists(self.filename):
+            # thanks to this utime, the clean_cache script can check locked file mtime
+            os.utime(self.filename, None)
         fcntl.flock(self.f.fileno(), fcntl.LOCK_UN)
         self.f.close()
         self.f = None

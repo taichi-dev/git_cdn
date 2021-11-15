@@ -35,16 +35,16 @@ install-no-dev:
 	@$(POETRY) install --no-dev
 
 isort:
-	@$(POETRY) run isort -rc .
+	@$(POETRY) run isort -rc $(MODULE)
 
 isort-check:
-	@$(POETRY) run isort -rc -c .
+	@$(POETRY) run isort -rc -c $(MODULE)
 
 black:
-	@$(POETRY) run black .
+	@$(POETRY) run black $(MODULE)
 
 black-check:
-	@$(POETRY) run black --check .
+	@$(POETRY) run black --check $(MODULE)
 
 pylint:
 	@$(POETRY) run pylint --rcfile=.pylintrc --output-format=colorized $(MODULE)
@@ -93,8 +93,6 @@ devel: dev
 develop: dev
 styles: style
 test-unit: test
-unittest: unit
-unittests: unit
 unit-tests: test
 ut: test
 
