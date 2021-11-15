@@ -165,7 +165,11 @@ class RepoCache:
         try:
             git_proc = await exec_git(*args)
             stdout_data, stderr_data = await git_proc.communicate()
-        except asyncio.exceptions.CancelledError:
+        except (
+            asyncio.CancelledError,
+            CancelledError,
+            ConnectionResetError,
+        ):
             # on client cancel, keep git command alive until the end to keep the write_lock if taken
             # caution the stdout/stderr before the cancel has been lost
             stdout_data, stderr_data = await git_proc.communicate()
