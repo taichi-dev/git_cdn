@@ -70,6 +70,7 @@ async def write_input(proc, input):
         await proc.stdin.drain()
     except RuntimeError:
         log.exception("exception while writing to upload-pack stdin")
+        raise
     except BrokenPipeError:
         # This occur with large input, and upload pack return an early error
         # like "not our ref"
