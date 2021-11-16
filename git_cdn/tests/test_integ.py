@@ -135,6 +135,37 @@ async def test_basic(make_client, loop, tmpdir, app, header_for_git, protocol_ve
 
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
+async def test_huge_branch(
+    make_client, loop, tmpdir, app, header_for_git, protocol_version
+):
+    assert loop
+
+    bigbranch = "I_DONT_CREATE_LONG_BRANCH_NAME" * 50
+    app = app()
+    client = await make_client(app)
+    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    tmpdir.chdir()
+    protocol = f"protocol.version={protocol_version}"
+    proc = await asyncio.create_subprocess_exec(
+        "git",
+        *header_for_git,
+        "-c",
+        protocol,
+        "clone",
+        url,
+        "-b",
+        bigbranch,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    assert (await proc.wait()) == 128
+    assert (await proc.stdout.read()) == b""
+    error = (await proc.stderr.read()).decode(errors="ignore")
+    assert "fatal: Remote branch " + bigbranch + " not found" in error
+
+
+@pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_no_ending_dot_git(
     make_client, loop, tmpdir, app, header_for_git, protocol_version
 ):

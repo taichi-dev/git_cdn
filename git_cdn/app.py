@@ -62,11 +62,26 @@ parallel_request = 0
 
 def fix_headers(headers):
     """Remove headers about encoding and hosts, which do not make sense to forward in proxy
-    This blacklist applies to request and response headers
+    This blacklist applies to request headers
     """
-    for header in ("Host", "Transfer-Encoding"):
+    to_del = (
+        "Host",
+        "Transfer-Encoding",
+        "Content-Length",
+        "Content-Encoding",
+    )
+    for header in to_del:
         if header in headers:
             del headers[header]
+
+
+def fix_response_headers(headers):
+    """Remove headers about encoding, which do not make sense to forward in proxy
+    This blacklist applies to response headers
+    """
+    header = "Transfer-Encoding"
+    if header in headers:
+        del headers[header]
 
 
 def check_auth(request):
@@ -284,7 +299,7 @@ class GitCDN:
         if request.path.endswith("info/lfs/objects/batch"):
             return await self.handle_lfs_response(request, input_response)
         headers = input_response.headers.copy()
-        fix_headers(headers)
+        fix_response_headers(headers)
         response = web.StreamResponse(status=input_response.status, headers=headers)
         writer = await response.prepare(request)
         while True:
