@@ -6,9 +6,9 @@ WORKDIR     /app
 RUN  apk --no-cache add make git libstdc++ && \
     apk add --update --no-cache libffi curl openssl
 
-ADD dist/*.whl /app/
+ADD dist/git_cdn-*.whl requirements.txt /app/
 RUN apk add --update --no-cache --virtual .build-deps alpine-sdk musl-dev libffi-dev openssl-dev &&\
-    python -m pip install /app/*.whl && \
+    python -m pip install --constraint requirements.txt /app/git_cdn-*.whl && \
     apk del .build-deps
 
 # Configure git for git-cdn

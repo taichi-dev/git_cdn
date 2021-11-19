@@ -40,12 +40,15 @@ build:
         - git lfs --version
         - git lfs install
         - make dev
+        - make set-version
         - make build
+        - make export
     artifacts:
         paths:
             - dist/
             - Dockerfile
             - config.py
+            - requirements.txt
 
 tests:
     extends: .only

@@ -25,6 +25,9 @@ poetry-install:
 install:
 	@$(POETRY) install
 
+export:
+	@$(POETRY) export --without-hashes --output requirements.txt
+
 build:
 	@$(POETRY) build
 
