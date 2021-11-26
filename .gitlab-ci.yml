@@ -36,6 +36,7 @@ build:
     variables:
         WORKING_DIRECTORY: /tmp
     script:
+        - python --version
         - git --version
         - git lfs --version
         - git lfs install

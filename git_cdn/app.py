@@ -275,7 +275,7 @@ class GitCDN:
         headers = response.headers.copy()
         # in case of large response, gitlab can automatically encode to gzip,
         # so we need to fix headers
-        fix_headers(headers)
+        fix_response_headers(headers)
 
         # as we need to change lfs_json, we need to decompress the payload
         if "Content-Encoding" in headers:
