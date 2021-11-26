@@ -118,7 +118,6 @@ class LFSCacheManager:
                 "lfs_href": href,
                 "lfs_content_length": request.headers["Content-Length"],
             }
-            log.debug("downloading lfs", **ctx)
             if request.status != 200:
                 raise HTTPNotFound(body=await request.content.read())
 
