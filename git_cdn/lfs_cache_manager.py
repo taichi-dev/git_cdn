@@ -159,5 +159,5 @@ class LFSCacheManager:
             await asyncio.shield(self.download_object(cache_file, href, headers))
 
             if not cache_file.exists():
-                raise HTTPNotFound(body=f"failed to get LFS file")
+                raise HTTPNotFound(body="failed to get LFS file")
             return cache_file.filename

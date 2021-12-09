@@ -16,7 +16,7 @@ style: isort black
 dev: poetry-install install
 sc: style checks
 sct: style checks test
-checks: isort-check black-check
+checks: isort-check black-check flake8
 
 poetry-install:
 	@$(PIP) install --user --upgrade "pip$(PIP_VERSION)" "poetry$(POETRY_VERSION)"
@@ -48,6 +48,9 @@ black:
 
 black-check:
 	@$(POETRY) run black --check $(MODULE)
+
+flake8:
+	$(POETRY) run flake8 --config .flake8 $(MODULE)
 
 pylint:
 	@$(POETRY) run pylint --rcfile=.pylintrc --output-format=colorized $(MODULE)

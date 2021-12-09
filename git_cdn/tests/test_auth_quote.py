@@ -5,8 +5,8 @@ import base64
 from git_cdn.app import get_url_creds_from_auth
 
 
-def basic(l, p):
-    return "Basic " + base64.b64encode((l + ":" + p).encode()).decode()
+def basic(login, pwd):
+    return "Basic " + base64.b64encode((login + ":" + pwd).encode()).decode()
 
 
 def test_get_url_creds_from_auth():
