@@ -110,25 +110,7 @@ class UploadPackInputParserV2:
             if b"filter" in self.args:
                 self.filter = True
 
-            hash = hashlib.sha256()
-            hash.update(b"caps")
-            for i in sorted(self.caps):
-                hash.update(i)
-            hash.update(b"haves")
-            for i in sorted(self.haves):
-                hash.update(i)
-            hash.update(b"wants")
-            for i in sorted(self.wants):
-                hash.update(i)
-            hash.update(b"args")
-            for i in sorted(self.args):
-                hash.update(i)
-            for i in sorted(self.depth_lines):
-                hash.update(i)
-            if self.done:
-                hash.update(b"done")
-            self.hash = hash.hexdigest()
-
+            self.hash_update()
             self.as_dict = {
                 # decoded data to be stored in logstash for analysis
                 "caps": b" ".join(sorted(self.caps)).decode(),
@@ -157,6 +139,26 @@ class UploadPackInputParserV2:
                 "parse_error": True,
                 "hash": self.hash[:5],
             }
+
+    def hash_update(self):
+        hash = hashlib.sha256()
+        hash.update(b"caps")
+        for i in sorted(self.caps):
+            hash.update(i)
+        hash.update(b"haves")
+        for i in sorted(self.haves):
+            hash.update(i)
+        hash.update(b"wants")
+        for i in sorted(self.wants):
+            hash.update(i)
+        hash.update(b"args")
+        for i in sorted(self.args):
+            hash.update(i)
+        for i in sorted(self.depth_lines):
+            hash.update(i)
+        if self.done:
+            hash.update(b"done")
+        self.hash = hash.hexdigest()
 
     def parse_caps(self):
         self.caps = {}

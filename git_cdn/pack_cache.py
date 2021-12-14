@@ -98,7 +98,10 @@ class PackCache:
                 log.exception(
                     "Aborting cache_pack", hash=self.hash, filename=self.filename
                 )
-                os.unlink(self.filename)
+                try:
+                    os.unlink(self.filename)
+                except FileNotFoundError:
+                    pass
 
 
 class FileLock:

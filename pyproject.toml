@@ -29,6 +29,7 @@ aiohttp = ">3.0.0"
 gunicorn = "*"
 sentry-sdk = "*"
 ujson = "*"
+flake8 = "^4.0.1"
 
 
 [tool.poetry.dev-dependencies]

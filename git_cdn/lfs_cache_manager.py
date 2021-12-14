@@ -114,10 +114,9 @@ class LFSCacheManager:
     async def download_object(self, cache_file, href, headers):
         t1 = time.time()
         async with self.session.get(href, headers=headers) as request:
-            ctx = {
-                "lfs_href": href,
-                "lfs_content_length": request.headers["Content-Length"],
-            }
+            ctx = {"lfs_href": href}
+            if "Content-Length" in request.headers:
+                ctx["lfs_content_length"] = request.headers["Content-Length"]
             if request.status != 200:
                 raise HTTPNotFound(body=await request.content.read())
 
@@ -159,5 +158,5 @@ class LFSCacheManager:
             await asyncio.shield(self.download_object(cache_file, href, headers))
 
             if not cache_file.exists():
-                raise HTTPNotFound(body=f"failed to get LFS file")
+                raise HTTPNotFound(body="failed to get LFS file")
             return cache_file.filename
