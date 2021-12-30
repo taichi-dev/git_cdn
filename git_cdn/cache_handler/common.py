@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from pathlib import Path
 from shutil import rmtree
 
 NOW = datetime.now()
@@ -32,6 +33,28 @@ class BasePrune:
 
     def __repr__(self):
         return self.__str__()
+
+    @property
+    def mtime(self):
+        raise NotImplementedError
+
+    @property
+    def size(self):
+        raise NotImplementedError
+
+    def to_dict(self):
+        return {
+            "mtime": self.mtime.strftime("%Y/%m/%d %H:%M:%S"),
+            "age": self.age_sec,
+            "size": self.size,
+            "path": self.path,
+            "basename": Path(self.path).name,
+            "timestamp": NOW.strftime("%Y/%m/%d %H:%M:%S"),
+        }
+
+    @property
+    def age_sec(self):
+        return (NOW - self.mtime).seconds
 
     @property
     def age(self):
@@ -157,7 +180,7 @@ class BundleFile(BasePrune):
             pass
 
 
-def find_bundle():
-    for f in os.scandir("bundles"):
+def find_bundle(s):
+    for f in os.scandir(s):
         if f.is_file() and f.path.endswith(".bundle"):
             yield BundleFile(f)
