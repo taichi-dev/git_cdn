@@ -4,12 +4,12 @@ import os
 
 import pytest
 
+from git_cdn.cache_handler.clean_cache import find_older_repo
+from git_cdn.cache_handler.common import find_git_repo
 from git_cdn.conftest import CREDS
 from git_cdn.conftest import GITLAB_REPO_TEST_GROUP
 from git_cdn.conftest import GITSERVER_UPSTREAM
 from git_cdn.conftest import MANIFEST_PATH
-from git_cdn.script.clean_cache import find_git_repo
-from git_cdn.script.clean_cache import find_older_repo
 from git_cdn.upload_pack import generate_url
 
 repolist = [
