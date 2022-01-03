@@ -3,7 +3,11 @@ from datetime import datetime
 from pathlib import Path
 from shutil import rmtree
 
+from structlog import getLogger
+
 NOW = datetime.now()
+
+log = getLogger()
 
 
 def sizeof_fmt(num, suffix="B"):
@@ -29,7 +33,7 @@ def dir_size(directory):
 
 class BasePrune:
     def __str__(self):
-        return f"{self.path:100}\t{self.age} days\t{self.size_fmt}"
+        return f"{self.path:100}\t{self.age} days({self.age_sec} sec)\t{self.size_fmt}"
 
     def __repr__(self):
         return self.__str__()
@@ -45,6 +49,7 @@ class BasePrune:
     def to_dict(self):
         return {
             "mtime": self.mtime.strftime("%Y/%m/%d %H:%M:%S"),
+            "type": type(self).__name__,
             "age": self.age_sec,
             "size": self.size,
             "path": self.path,
@@ -53,8 +58,12 @@ class BasePrune:
         }
 
     @property
+    def type(self):
+        return type(self).__name__
+
+    @property
     def age_sec(self):
-        return (NOW - self.mtime).seconds
+        return int((NOW - self.mtime).total_seconds())
 
     @property
     def age(self):
@@ -96,11 +105,11 @@ class GitRepo(BasePrune):
 def find_git_repo(s):
     dir_entries = [e for e in os.scandir(s) if e.is_dir()]
     subgroups = [d for d in dir_entries if not d.name.endswith(".git")]
-    repos = [d for d in dir_entries if d.name.endswith(".git")]
-    git_repos = [GitRepo(d) for d in repos]
     for subgroup in subgroups:
         yield from find_git_repo(subgroup)
+    git_repos = [GitRepo(d) for d in dir_entries if d.name.endswith(".git")]
     for g in git_repos:
+        log.info("cache item", **g.to_dict())
         yield g
 
 
@@ -145,11 +154,10 @@ def find_lfs(s):
         for f in os.scandir(s)
         if f.is_file() and not f.name.endswith(".lock")
     ]
-
     for directory in dir_entries:
-        for g in find_lfs(directory):
-            yield g
+        yield from find_lfs(directory)
     for f in lfs:
+        log.info("cache item", **f.to_dict())
         yield f
 
 
@@ -183,4 +191,6 @@ class BundleFile(BasePrune):
 def find_bundle(s):
     for f in os.scandir(s):
         if f.is_file() and f.path.endswith(".bundle"):
-            yield BundleFile(f)
+            b = BundleFile(f)
+            log.info("cache item", **b.to_dict())
+            yield b

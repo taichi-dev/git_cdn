@@ -2,9 +2,12 @@
 import argparse
 import logging
 import os
+from dataclasses import dataclass
+from dataclasses import field
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version
 from shutil import rmtree
+from typing import List
 
 import sentry_sdk
 from structlog import getLogger
@@ -36,79 +39,18 @@ def mtime(g):
     return g.mtime
 
 
-def find_older_repo(older_than):
-    git_dirs = []
-    for g in find_git_repo("git"):
-        if g.age > older_than:
-            git_dirs.append(g)
-        log.info("git repo", **g.to_dict())
-
-    git_dirs.sort(key=mtime)
-    return git_dirs
+@dataclass
+class Cache:
+    path: str = ""
+    items: List = field(default_factory=list)
 
 
-def clean_git_repo(older_than, verbose, delete):
-    git_dirs = find_older_repo(older_than)
-
-    if verbose:
-        for g in git_dirs:
-            print(g)
-
-    print(f"Number of older git repos: {len(git_dirs)}")
-    total_size = sum([g.size for g in git_dirs])
-    log.info("clean_git_repo stats", clean_size=total_size, clean_files=len(git_dirs))
-    if verbose:
-        print(f"Total size that would be deleted {sizeof_fmt(total_size)}")
-
+def must_clean(path, threshold, total_clean_size, delete):
     if delete:
-        for g in git_dirs:
-            g.delete()
-
-
-def clean_lfs(older_than, verbose, delete):
-    lfs_files = []
-    for f in find_lfs("lfs"):
-        if f.age > older_than:
-            lfs_files.append(f)
-        log.info("lfs file", **f.to_dict())
-
-    lfs_files.sort(key=mtime)
-
-    if verbose:
-        for f in lfs_files:
-            print(f)
-
-    total_size = sum([f.size for f in lfs_files])
-    print(f"Number of lfs files to be cleaned: {len(lfs_files)}")
-    print(f"Total size that would be deleted {sizeof_fmt(total_size)}")
-    log.info("clean_lfs stats", clean_size=total_size, clean_files=len(lfs_files))
-
-    if delete:
-        for f in lfs_files:
-            f.delete()
-
-
-def clean_bundle(older_than, verbose, delete):
-    bundles = []
-    for b in find_bundle("bundles"):
-        if b.age > older_than:
-            bundles.append(b)
-        log.info("bundle file", **b.to_dict())
-
-    bundles.sort(key=mtime)
-
-    if verbose:
-        for f in bundles:
-            print(f)
-
-    total_size = sum([f.size for f in bundles])
-    print(f"Number of bundle files to be cleaned: {len(bundles)}")
-    print(f"Total size that would be deleted {sizeof_fmt(total_size)}")
-    log.info("clean_bundles stats", clean_size=total_size, clean_files=len(bundles))
-
-    if delete:
-        for f in bundles:
-            f.delete()
+        df = disk_free(path)
+    else:
+        df = disk_free(path) + total_clean_size
+    return df < threshold
 
 
 def setup_logging():
@@ -123,7 +65,7 @@ def setup_logging():
         enable_console_logs()
 
 
-def clean_cdn_cache():
+def set_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-v",
@@ -135,17 +77,10 @@ def clean_cdn_cache():
         "-d", "--delete", help="delete old repository", action="store_true"
     )
     parser.add_argument(
-        "-o",
-        "--older-than",
-        help="delete repository, not accessed for more than OLDER_THAN days",
-        default=100,
-        type=int,
-    )
-    parser.add_argument(
         "-t",
-        "--lfs-older-than",
-        help="delete repository, not accessed for more than OLDER_THAN days",
-        default=60,
+        "--threshold",
+        help="disk free threshold to reach (in GiB)",
+        default=100,
         type=int,
     )
     parser.add_argument("-l", "--lfs", help="also clean LFS files", action="store_true")
@@ -155,24 +90,118 @@ def clean_cdn_cache():
     parser.add_argument(
         "-a", "--all", help="Clean all caches: git repos and LFS", action="store_true"
     )
+    return parser
 
-    args = parser.parse_args()
-    workdir = os.path.expanduser(os.getenv("WORKING_DIRECTORY", ""))
-    os.chdir(workdir)
 
-    if not args.lfs and not args.bundle:
-        clean_git_repo(args.older_than, args.verbose, args.delete)
+def get_older(caches, item_type):
+    for k in caches:
+        caches[k].items.sort(key=mtime)
+        for i in caches[k].items:
+            if i.type == item_type:
+                print(f"older: {i}")
+                return i
+    return None
 
-    if args.lfs or args.all:
-        clean_lfs(args.lfs_older_than, args.verbose, args.delete)
 
-    if args.bundle or args.all:
-        clean_bundle(args.lfs_older_than, args.verbose, args.delete)
+def disk_free(path):
+    disk_stat = os.statvfs(path)
+    return disk_stat.f_bavail * disk_stat.f_frsize
+
+
+def disk_size(path):
+    disk_stat = os.statvfs(path)
+    return disk_stat.f_blocks * disk_stat.f_bsize
+
+
+def clean_cdn_cache(caches, threshold, delete):
+    threshold = threshold * 1024 ** 3
+    total_clean_size = 0
+    cleaned_files = []
+    for k in caches:
+        caches[k].items.sort(key=mtime, reverse=True)
+        while must_clean(caches[k].path, threshold, total_clean_size, delete):
+            try:
+                g = caches[k].items.pop()
+            except IndexError:
+                print(
+                    "The whole cache has been removed a the threshold has not been reached"
+                )
+                break
+            total_clean_size += g.size
+            cleaned_files.append(g)
+            print(f"removing {g}")
+            if delete:
+                g.delete()
+
+    print(f"Number of cleaned cache items: {len(cleaned_files)}")
+    infos = {}
+    older_git_repo = get_older(caches, "GitRepo")
+    if older_git_repo is not None:
+        infos["git_repo_disk_size"] = disk_size(older_git_repo.path)
+        infos["git_repo_disk_free"] = disk_free(older_git_repo.path)
+        infos["git_repo_cache_duration"] = older_git_repo.age_sec
+    older_lfs = get_older(caches, "LfsFile")
+    if older_lfs is not None:
+        infos["lfs_disk_size"] = disk_size(older_lfs.path)
+        infos["lfs_disk_free"] = disk_free(older_lfs.path)
+        infos["lfs_cache_duration"] = older_lfs.age_sec
+    older_bundle = get_older(caches, "BundleFile")
+    if older_bundle is not None:
+        infos["bundle_disk_size"] = disk_size(older_bundle.path)
+        infos["bundle_disk_free"] = disk_free(older_bundle.path)
+        infos["bundle_cache_duration"] = older_bundle.age_sec
+    log.info(
+        "clean_cache stats",
+        clean_size=total_clean_size,
+        clean_files=len(cleaned_files),
+        threshold=threshold,
+        **infos,
+    )
+    print(f"Total size that would be deleted {sizeof_fmt(total_clean_size)}")
+
+
+def scan_cache(git, lfs, bundle):
+    caches = {}
+    if git:
+        path = "git"
+        git_dirs = list(find_git_repo(path))
+        fs = os.statvfs(path)
+        fsid = fs.f_fsid
+        caches.setdefault(fsid, Cache())
+        caches[fsid].path = path
+        caches[fsid].items += git_dirs
+
+    if lfs:
+        path = "lfs"
+        lfs_files = list(find_lfs(path))
+        fs = os.statvfs(path)
+        fsid = fs.f_fsid
+        caches.setdefault(fsid, Cache())
+        caches[fsid].path = path
+        caches[fsid].items += lfs_files
+
+    if bundle:
+        path = "bundles"
+        bundles = list(find_bundle(path))
+        fs = os.statvfs(path)
+        fsid = fs.f_fsid
+        caches.setdefault(fsid, Cache())
+        caches[fsid].path = path
+        caches[fsid].items += bundles
+    return caches
 
 
 def main():
     setup_logging()
-    clean_cdn_cache()
+    parser = set_parser()
+    args = parser.parse_args()
+    workdir = os.path.expanduser(os.getenv("WORKING_DIRECTORY", ""))
+    os.chdir(workdir)
+    scan_git = True if args.all else not (args.lfs or args.bundle)
+    scan_lfs = True if args.all else args.lfs
+    scan_bundle = True if args.all else args.bundle
+    caches = scan_cache(scan_git, scan_lfs, scan_bundle)
+    clean_cdn_cache(caches, args.threshold, args.delete)
 
 
 if __name__ == "__main__":
