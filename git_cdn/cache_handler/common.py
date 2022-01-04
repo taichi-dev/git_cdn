@@ -33,7 +33,7 @@ def dir_size(directory):
 
 class BasePrune:
     def __str__(self):
-        return f"{self.path:100}\t{self.age} days({self.age_sec} sec)\t{self.size_fmt}"
+        return f"{self.path:70}\t{self.age} days({self.age_sec} sec)\t{self.size_fmt}"
 
     def __repr__(self):
         return self.__str__()
@@ -107,8 +107,9 @@ def find_git_repo(s):
     subgroups = [d for d in dir_entries if not d.name.endswith(".git")]
     for subgroup in subgroups:
         yield from find_git_repo(subgroup)
-    git_repos = [GitRepo(d) for d in dir_entries if d.name.endswith(".git")]
+    git_repos = [d for d in dir_entries if d.name.endswith(".git")]
     for g in git_repos:
+        g = GitRepo(g)
         log.info("cache item", **g.to_dict())
         yield g
 
@@ -149,14 +150,11 @@ class LfsFile(BasePrune):
 
 def find_lfs(s):
     dir_entries = [e for e in os.scandir(s) if e.is_dir()]
-    lfs = [
-        LfsFile(f)
-        for f in os.scandir(s)
-        if f.is_file() and not f.name.endswith(".lock")
-    ]
+    lfs = [f for f in os.scandir(s) if f.is_file() and not f.name.endswith(".lock")]
     for directory in dir_entries:
         yield from find_lfs(directory)
     for f in lfs:
+        f = LfsFile(f)
         log.info("cache item", **f.to_dict())
         yield f
 

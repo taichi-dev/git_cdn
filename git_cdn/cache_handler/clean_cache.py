@@ -93,14 +93,20 @@ def set_parser():
     return parser
 
 
-def get_older(caches, item_type):
+def get_olders(caches, item_types):
+    """
+    input: item_types is a dict with key of all types and values are None
+    output: item_types with feed values if possible
+
+    """
     for k in caches:
-        caches[k].items.sort(key=mtime)
         for i in caches[k].items:
-            if i.type == item_type:
-                print(f"older: {i}")
-                return i
-    return None
+            if i.type in item_types and item_types[i.type] is None:
+                print(f"Older {i.type}: {i}")
+                item_types[i.type] = i
+            # optimization: if older items are found for all asked types, we can exit loops
+            if None not in item_types.values():
+                return
 
 
 def disk_free(path):
@@ -118,10 +124,10 @@ def clean_cdn_cache(caches, threshold, delete):
     total_clean_size = 0
     cleaned_files = []
     for k in caches:
-        caches[k].items.sort(key=mtime, reverse=True)
+        caches[k].items.sort(key=mtime)
         while must_clean(caches[k].path, threshold, total_clean_size, delete):
             try:
-                g = caches[k].items.pop()
+                g = caches[k].items.pop(0)
             except IndexError:
                 print(
                     "The whole cache has been removed a the threshold has not been reached"
@@ -135,17 +141,19 @@ def clean_cdn_cache(caches, threshold, delete):
 
     print(f"Number of cleaned cache items: {len(cleaned_files)}")
     infos = {}
-    older_git_repo = get_older(caches, "GitRepo")
+    items = {"GitRepo": None, "LfsFile": None, "BundleFile": None}
+    get_olders(caches, items)
+    older_git_repo = items["GitRepo"]
     if older_git_repo is not None:
         infos["git_repo_disk_size"] = disk_size(older_git_repo.path)
         infos["git_repo_disk_free"] = disk_free(older_git_repo.path)
         infos["git_repo_cache_duration"] = older_git_repo.age_sec
-    older_lfs = get_older(caches, "LfsFile")
+    older_lfs = items["LfsFile"]
     if older_lfs is not None:
         infos["lfs_disk_size"] = disk_size(older_lfs.path)
         infos["lfs_disk_free"] = disk_free(older_lfs.path)
         infos["lfs_cache_duration"] = older_lfs.age_sec
-    older_bundle = get_older(caches, "BundleFile")
+    older_bundle = items["BundleFile"]
     if older_bundle is not None:
         infos["bundle_disk_size"] = disk_size(older_bundle.path)
         infos["bundle_disk_free"] = disk_free(older_bundle.path)
