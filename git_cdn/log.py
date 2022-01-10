@@ -1,6 +1,7 @@
 # Standard Library
 import logging
 import socket
+import numbers
 import sys
 import uuid
 from logging.handlers import DatagramHandler
@@ -16,19 +17,10 @@ g_version = "unknown"
 g_host = socket.gethostname()
 
 
-# Workaround for sentry, sentry has a hook on logging, and uses internally str(record.msg)
-# if record.msg is a dict, it is unreadable, so return only the message instead
-class StructDict(dict):
-    def __str__(self):
-        if "message" in self:
-            return self["message"]
-        return super().__str__()
-
-
 # Move all event_dict fields into extra, and rename event to message for vector.dev
 def extra_field(logger, method_name, event_dict):
     message = event_dict.pop("event")
-    newdict = StructDict()
+    newdict = {}
     newdict["message"] = message
     if event_dict:
         newdict["extra"] = event_dict
@@ -178,3 +170,35 @@ def enable_console_logs():
     out_handler = logging.StreamHandler(sys.stdout)
     out_handler.setFormatter(formatter)
     rlog.addHandler(out_handler)
+
+def configure_structlog():
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.processors.TimeStamper(fmt="%H:%M.%S.%f"),
+            extra_field,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+
+# minimal console configuration, log warning and error to stderr
+def configure_minimal_log():
+    configure_structlog()
+    out_handler = logging.StreamHandler(sys.stderr)
+    out_handler.setLevel(logging.WARNING)
+    out_handler.setFormatter(
+        logging.Formatter("[%(asctime)s] %(levelname)s %(message)s")
+    )
+    rlog = logging.getLogger()
+    rlog.addHandler(out_handler)
+    return out_handler

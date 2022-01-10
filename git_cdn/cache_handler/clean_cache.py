@@ -1,5 +1,6 @@
 # Standard Library
 import argparse
+import ast
 import logging
 import os
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from shutil import rmtree
 from typing import List
 
 import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
 from structlog import getLogger
 
 from git_cdn.cache_handler.common import find_bundle
@@ -17,6 +19,7 @@ from git_cdn.cache_handler.common import find_git_repo
 from git_cdn.cache_handler.common import find_lfs
 from git_cdn.cache_handler.common import sizeof_fmt
 from git_cdn.log import enable_console_logs
+from git_cdn.log import configure_minimal_log
 from git_cdn.log import enable_udp_logs
 
 log = getLogger()
@@ -26,11 +29,45 @@ try:
 except PackageNotFoundError:
     GITCDN_VERSION = "unknown"
 
+
+def before_breadcrumb(event, hint):
+    if "log_record" in hint:
+        try:
+            evt = ast.literal_eval(hint["log_record"].message)
+            if "message" in evt:
+                event["message"] = evt["message"]
+            if "extra" in evt:
+                event["data"].update(evt["extra"])
+        except Exception:
+            pass
+    return event
+
+
+def before_send(event, hint):
+    if "log_record" in hint:
+        try:
+            evt = ast.literal_eval(hint["log_record"].message)
+            if "message" in evt:
+                event["logentry"]["message"] = evt.pop("message")
+            if "extra" in evt:
+                event["extra"].update(evt["extra"])
+        except Exception:
+            pass
+    return event
+
+
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
+    sentry_logging = LoggingIntegration(
+        level=logging.DEBUG,  # Capture debug and above as breadcrumbs
+        event_level=logging.ERROR,  # Send errors as events
+    )
     sentry_sdk.init(
         sentry_dsn,
+        integrations=[sentry_logging],
         release=GITCDN_VERSION,
+        before_breadcrumb=before_breadcrumb,
+        before_send=before_send,
         environment=os.getenv("SENTRY_ENV", "dev"),
     )
 
@@ -53,8 +90,9 @@ def must_clean(path, threshold, total_clean_size, delete):
     return df < threshold
 
 
-def setup_logging():
-    logging.basicConfig(level=logging.DEBUG)
+def setup_logging(verbose = False):
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
     log_server = os.getenv("LOGGING_SERVER")
     if log_server is not None:
         print("LOGGING TO VECTOR")
@@ -62,7 +100,10 @@ def setup_logging():
         enable_udp_logs(host, int(port), GITCDN_VERSION)
     else:
         print("LOGGING TO CONSOLE")
-        enable_console_logs()
+        if verbose:
+            enable_console_logs()
+        else:
+            configure_minimal_log()
 
 
 def set_parser():
@@ -160,6 +201,7 @@ def clean_cdn_cache(caches, threshold, delete):
         infos["bundle_cache_duration"] = older_bundle.age_sec
     log.info(
         "clean_cache stats",
+        tryrun=not delete,
         clean_size=total_clean_size,
         clean_files=len(cleaned_files),
         threshold=threshold,
@@ -200,9 +242,9 @@ def scan_cache(git, lfs, bundle):
 
 
 def main():
-    setup_logging()
     parser = set_parser()
     args = parser.parse_args()
+    setup_logging(args.verbose)
     workdir = os.path.expanduser(os.getenv("WORKING_DIRECTORY", ""))
     os.chdir(workdir)
     scan_git = True if args.all else not (args.lfs or args.bundle)
