@@ -167,9 +167,22 @@ def enable_console_logs(level=None, output=sys.stdout):
         foreign_pre_chain=shared_processors,
     )
 
+    stderr_level = logging.ERROR
+    err_handler = logging.StreamHandler(sys.stderr)
+    err_handler.setLevel(stderr_level)
+    err_handler.setFormatter(formatter)
+
     out_handler = logging.StreamHandler(output)
     if level:
         out_handler.setLevel(level)
     out_handler.setFormatter(formatter)
+
+    class ignoreError(logging.Filter):
+        def filter(self, record):
+            return record.levelno < stderr_level
+
+    out_handler.addFilter(ignoreError())
+
     rlog = logging.getLogger()
     rlog.addHandler(out_handler)
+    rlog.addHandler(err_handler)
