@@ -72,24 +72,6 @@ if sentry_dsn:
     )
 
 
-def mtime(g):
-    return g.mtime
-
-
-@dataclass
-class Cache:
-    path: str = ""
-    items: List = field(default_factory=list)
-
-
-def must_clean(path, threshold, total_clean_size, delete):
-    if delete:
-        df = disk_free(path)
-    else:
-        df = disk_free(path) + total_clean_size
-    return df < threshold
-
-
 def setup_logging(verbose = False):
     logging.getLogger().setLevel(logging.DEBUG)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
@@ -104,6 +86,16 @@ def setup_logging(verbose = False):
             enable_console_logs()
         else:
             configure_minimal_log()
+
+
+def mtime(g):
+    return g.mtime
+
+
+@dataclass
+class Cache:
+    path: str = ""
+    items: List = field(default_factory=list)
 
 
 def set_parser():
@@ -134,6 +126,37 @@ def set_parser():
     return parser
 
 
+def scan_cache(git, lfs, bundle):
+    caches = {}
+    if git:
+        path = "git"
+        git_dirs = list(find_git_repo(path))
+        fs = os.statvfs(path)
+        fsid = fs.f_fsid
+        caches.setdefault(fsid, Cache())
+        caches[fsid].path = path
+        caches[fsid].items += git_dirs
+
+    if lfs:
+        path = "lfs"
+        lfs_files = list(find_lfs(path))
+        fs = os.statvfs(path)
+        fsid = fs.f_fsid
+        caches.setdefault(fsid, Cache())
+        caches[fsid].path = path
+        caches[fsid].items += lfs_files
+
+    if bundle:
+        path = "bundles"
+        bundles = list(find_bundle(path))
+        fs = os.statvfs(path)
+        fsid = fs.f_fsid
+        caches.setdefault(fsid, Cache())
+        caches[fsid].path = path
+        caches[fsid].items += bundles
+    return caches
+
+
 def get_olders(caches, item_types):
     """
     input: item_types is a dict with key of all types and values are None
@@ -158,6 +181,14 @@ def disk_free(path):
 def disk_size(path):
     disk_stat = os.statvfs(path)
     return disk_stat.f_blocks * disk_stat.f_bsize
+
+
+def must_clean(path, threshold, total_clean_size, delete):
+    if delete:
+        df = disk_free(path)
+    else:
+        df = disk_free(path) + total_clean_size
+    return df < threshold
 
 
 def clean_cdn_cache(caches, threshold, delete):
@@ -208,37 +239,6 @@ def clean_cdn_cache(caches, threshold, delete):
         **infos,
     )
     print(f"Total size that would be deleted {sizeof_fmt(total_clean_size)}")
-
-
-def scan_cache(git, lfs, bundle):
-    caches = {}
-    if git:
-        path = "git"
-        git_dirs = list(find_git_repo(path))
-        fs = os.statvfs(path)
-        fsid = fs.f_fsid
-        caches.setdefault(fsid, Cache())
-        caches[fsid].path = path
-        caches[fsid].items += git_dirs
-
-    if lfs:
-        path = "lfs"
-        lfs_files = list(find_lfs(path))
-        fs = os.statvfs(path)
-        fsid = fs.f_fsid
-        caches.setdefault(fsid, Cache())
-        caches[fsid].path = path
-        caches[fsid].items += lfs_files
-
-    if bundle:
-        path = "bundles"
-        bundles = list(find_bundle(path))
-        fs = os.statvfs(path)
-        fsid = fs.f_fsid
-        caches.setdefault(fsid, Cache())
-        caches[fsid].path = path
-        caches[fsid].items += bundles
-    return caches
 
 
 def main():
