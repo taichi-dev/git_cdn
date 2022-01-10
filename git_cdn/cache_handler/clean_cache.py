@@ -3,6 +3,7 @@ import argparse
 import ast
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from dataclasses import field
 from importlib.metadata import PackageNotFoundError
@@ -19,7 +20,6 @@ from git_cdn.cache_handler.common import find_git_repo
 from git_cdn.cache_handler.common import find_lfs
 from git_cdn.cache_handler.common import sizeof_fmt
 from git_cdn.log import enable_console_logs
-from git_cdn.log import configure_minimal_log
 from git_cdn.log import enable_udp_logs
 
 log = getLogger()
@@ -72,20 +72,16 @@ if sentry_dsn:
     )
 
 
-def setup_logging(verbose = False):
-    logging.getLogger().setLevel(logging.DEBUG)
+def setup_logging(verbose=False):
     logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
     log_server = os.getenv("LOGGING_SERVER")
     if log_server is not None:
-        print("LOGGING TO VECTOR")
         host, port = log_server.split(":")
         enable_udp_logs(host, int(port), GITCDN_VERSION)
+    if verbose:
+        enable_console_logs()
     else:
-        print("LOGGING TO CONSOLE")
-        if verbose:
-            enable_console_logs()
-        else:
-            configure_minimal_log()
+        enable_console_logs(logging.INFO)
 
 
 def mtime(g):

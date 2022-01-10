@@ -102,6 +102,10 @@ class GitRepo(BasePrune):
         print("\t\t[OK]")
 
 
+def debug(item):
+    log.debug("cache item", **item.to_dict())
+
+
 def find_git_repo(s):
     dir_entries = [e for e in os.scandir(s) if e.is_dir()]
     subgroups = [d for d in dir_entries if not d.name.endswith(".git")]
@@ -110,7 +114,7 @@ def find_git_repo(s):
     git_repos = [d for d in dir_entries if d.name.endswith(".git")]
     for g in git_repos:
         g = GitRepo(g)
-        log.info("cache item", **g.to_dict())
+        debug(g)
         yield g
 
 
@@ -155,7 +159,7 @@ def find_lfs(s):
         yield from find_lfs(directory)
     for f in lfs:
         f = LfsFile(f)
-        log.info("cache item", **f.to_dict())
+        debug(f)
         yield f
 
 
@@ -190,5 +194,5 @@ def find_bundle(s):
     for f in os.scandir(s):
         if f.is_file() and f.path.endswith(".bundle"):
             b = BundleFile(f)
-            log.info("cache item", **b.to_dict())
+            debug(b)
             yield b
