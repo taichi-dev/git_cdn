@@ -1,4 +1,5 @@
 # Standard Library
+import ast
 import asyncio
 import base64
 import gzip
@@ -23,9 +24,12 @@ from aiohttp.web_exceptions import HTTPBadRequest
 from aiohttp.web_exceptions import HTTPPermanentRedirect
 from aiohttp.web_exceptions import HTTPUnauthorized
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 from structlog.contextvars import clear_contextvars
+from structlog.contextvars import get_contextvars
+from structlog.threadlocal import get_threadlocal
 
 from git_cdn.clone_bundle_manager import CloneBundleManager
 from git_cdn.clone_bundle_manager import close_bundle_session
@@ -43,13 +47,52 @@ try:
 except PackageNotFoundError:
     GITCDN_VERSION = "unknown"
 
+
+def before_breadcrumb(event, hint):
+    if "log_record" in hint:
+        try:
+            evt = ast.literal_eval(hint["log_record"].message)
+            if "message" in evt:
+                event["message"] = evt["message"]
+            if "extra" in evt:
+                event["data"].update(evt["extra"])
+        except Exception:
+            pass
+    return event
+
+
+def before_send(event, hint):
+    if "log_record" in hint:
+        try:
+            evt = ast.literal_eval(hint["log_record"].message)
+            if "message" in evt:
+                event["logentry"]["message"] = evt.pop("message")
+            if "extra" in evt:
+                event["extra"].update(evt["extra"])
+            ctx = get_contextvars()
+            if ctx:
+                event["extra"].update(ctx)
+            tloc = get_threadlocal()
+            if tloc:
+                event["extra"].update(tloc)
+        except Exception:
+            pass
+    return event
+
+
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
+    sentry_logging = LoggingIntegration(
+        level=logging.DEBUG,  # Capture debug and above as breadcrumbs
+        event_level=logging.ERROR,  # Send errors as events
+    )
     sentry_sdk.init(
         sentry_dsn,
+        integrations=[sentry_logging, AioHttpIntegration()],
         release=GITCDN_VERSION,
+        before_breadcrumb=before_breadcrumb,
+        before_send=before_send,
         environment=os.getenv("SENTRY_ENV", "dev"),
-        integrations=[AioHttpIntegration()],
     )
 
 
