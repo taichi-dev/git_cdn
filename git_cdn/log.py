@@ -164,7 +164,6 @@ def enable_console_logs(level=None, output=sys.stdout):
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.dev.ConsoleRenderer(),
         ],
-        foreign_pre_chain=shared_processors,
     )
 
     stderr_level = logging.ERROR
