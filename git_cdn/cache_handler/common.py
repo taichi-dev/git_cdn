@@ -1,10 +1,13 @@
-# Standard Library
-import argparse
 import os
 from datetime import datetime
+from pathlib import Path
 from shutil import rmtree
 
+from structlog import getLogger
+
 NOW = datetime.now()
+
+log = getLogger()
 
 
 def sizeof_fmt(num, suffix="B"):
@@ -30,10 +33,37 @@ def dir_size(directory):
 
 class BasePrune:
     def __str__(self):
-        return f"{self.path:100}\t{self.age} days\t{self.size_fmt}"
+        return f"{self.path:70}\t{self.age} days({self.age_sec} sec)\t{self.size_fmt}"
 
     def __repr__(self):
         return self.__str__()
+
+    @property
+    def mtime(self):
+        raise NotImplementedError
+
+    @property
+    def size(self):
+        raise NotImplementedError
+
+    def to_dict(self):
+        return {
+            "mtime": self.mtime.strftime("%Y/%m/%d %H:%M:%S"),
+            "type": type(self).__name__,
+            "age": self.age_sec,
+            "size": self.size,
+            "path": self.path,
+            "basename": Path(self.path).name,
+            "timestamp": NOW.strftime("%Y/%m/%d %H:%M:%S"),
+        }
+
+    @property
+    def type(self):
+        return type(self).__name__
+
+    @property
+    def age_sec(self):
+        return int((NOW - self.mtime).total_seconds())
 
     @property
     def age(self):
@@ -72,43 +102,20 @@ class GitRepo(BasePrune):
         print("\t\t[OK]")
 
 
+def debug(item):
+    log.debug("cache item", **item.to_dict())
+
+
 def find_git_repo(s):
     dir_entries = [e for e in os.scandir(s) if e.is_dir()]
     subgroups = [d for d in dir_entries if not d.name.endswith(".git")]
-    repos = [d for d in dir_entries if d.name.endswith(".git")]
-    git_repos = [GitRepo(d) for d in repos]
     for subgroup in subgroups:
         yield from find_git_repo(subgroup)
+    git_repos = [d for d in dir_entries if d.name.endswith(".git")]
     for g in git_repos:
+        g = GitRepo(g)
+        debug(g)
         yield g
-
-
-def mtime(g):
-    return g.mtime
-
-
-def find_older_repo(older_than):
-    git_dirs = [g for g in find_git_repo("git") if g.age > older_than]
-    git_dirs.sort(key=mtime)
-    return git_dirs
-
-
-def clean_git_repo(older_than, verbose, delete):
-    git_dirs = find_older_repo(older_than)
-
-    if verbose:
-        for g in git_dirs:
-            print(g)
-
-    print(f"Number of older git repos: {len(git_dirs)}")
-    if verbose:
-        # calculate the size only on verbose mode
-        total_size = sum([g.size for g in git_dirs])
-        print(f"Total size that would be deleted {sizeof_fmt(total_size)}")
-
-    if delete:
-        for g in git_dirs:
-            g.delete()
 
 
 class LfsFile(BasePrune):
@@ -147,35 +154,13 @@ class LfsFile(BasePrune):
 
 def find_lfs(s):
     dir_entries = [e for e in os.scandir(s) if e.is_dir()]
-    lfs = [
-        LfsFile(f)
-        for f in os.scandir(s)
-        if f.is_file() and not f.name.endswith(".lock")
-    ]
-
+    lfs = [f for f in os.scandir(s) if f.is_file() and not f.name.endswith(".lock")]
     for directory in dir_entries:
-        for g in find_lfs(directory):
-            yield g
+        yield from find_lfs(directory)
     for f in lfs:
+        f = LfsFile(f)
+        debug(f)
         yield f
-
-
-def clean_lfs(older_than, verbose, delete):
-    lfs_files = [f for f in find_lfs("lfs") if f.age > older_than]
-
-    lfs_files.sort(key=mtime)
-
-    if verbose:
-        for f in lfs_files:
-            print(f)
-
-    total_size = sum([f.size for f in lfs_files])
-    print(f"Number of lfs files to be cleaned: {len(lfs_files)}")
-    print(f"Total size that would be deleted {sizeof_fmt(total_size)}")
-
-    if delete:
-        for f in lfs_files:
-            f.delete()
 
 
 class BundleFile(BasePrune):
@@ -205,75 +190,9 @@ class BundleFile(BasePrune):
             pass
 
 
-def find_bundle():
-    for f in os.scandir("bundles"):
+def find_bundle(s):
+    for f in os.scandir(s):
         if f.is_file() and f.path.endswith(".bundle"):
-            yield BundleFile(f)
-
-
-def clean_bundle(older_than, verbose, delete):
-    bundles = [f for f in find_bundle() if f.age > older_than]
-    bundles.sort(key=mtime)
-
-    if verbose:
-        for f in bundles:
-            print(f)
-
-    total_size = sum([f.size for f in bundles])
-    print(f"Number of bundle files to be cleaned: {len(bundles)}")
-    print(f"Total size that would be deleted {sizeof_fmt(total_size)}")
-
-    if delete:
-        for f in bundles:
-            f.delete()
-
-
-def clean_cdn_cache():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        help="list each file/directory that would be deleted",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-d", "--delete", help="delete old repository", action="store_true"
-    )
-    parser.add_argument(
-        "-o",
-        "--older-than",
-        help="delete repository, not accessed for more than OLDER_THAN days",
-        default=100,
-        type=int,
-    )
-    parser.add_argument(
-        "-t",
-        "--lfs-older-than",
-        help="delete repository, not accessed for more than OLDER_THAN days",
-        default=60,
-        type=int,
-    )
-    parser.add_argument("-l", "--lfs", help="also clean LFS files", action="store_true")
-    parser.add_argument(
-        "-b", "--bundle", help="also clean Bundle files", action="store_true"
-    )
-    parser.add_argument(
-        "-a", "--all", help="Clean all caches: git repos and LFS", action="store_true"
-    )
-
-    args = parser.parse_args()
-    workdir = os.path.expanduser(os.getenv("WORKING_DIRECTORY", ""))
-    os.chdir(workdir)
-
-    if not args.lfs and not args.bundle:
-        clean_git_repo(args.older_than, args.verbose, args.delete)
-
-    if args.lfs or args.all:
-        clean_lfs(args.lfs_older_than, args.verbose, args.delete)
-
-    if args.bundle or args.all:
-        clean_bundle(args.lfs_older_than, args.verbose, args.delete)
-
-
-if __name__ == "__main__":
-    clean_cdn_cache()
+            b = BundleFile(f)
+            debug(b)
+            yield b

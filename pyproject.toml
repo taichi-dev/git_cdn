@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "git_cdn"
-version = "1.7.2"
+version = "v0.0.0"
 description = "a Content Delivery Network for git"
 authors = ["Nestor team <list.rsl_releng_admin@renault.com>"]
 classifiers = [
@@ -17,14 +17,14 @@ homepage = "https://gitlab.com/grouperenault/git_cdn"
 
 packages = [
     { include = 'git_cdn/*.py' },
-    { include = 'git_cdn/script/*.py'}
+    { include = 'git_cdn/cache_handler/*.py'}
 ]
 include = [{path = 'git_cdn/tests/**/*', format = 'sdist'},
             {path = 'git_cdn/tests/*', format = 'sdist'}]
 
 [tool.poetry.dependencies]
 python = ">=3.8"
-structlog = "*"
+structlog = ">=21.5.0"
 aiohttp = ">3.0.0"
 gunicorn = "*"
 sentry-sdk = "*"
@@ -55,4 +55,4 @@ requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry.scripts]
-clean-gitcdn-cache = "git_cdn.script.clean_cache:clean_cdn_cache"
+clean-gitcdn-cache = "git_cdn.cache_handler.clean_cache:main"

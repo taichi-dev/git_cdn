@@ -4,12 +4,11 @@ import os
 
 import pytest
 
+from git_cdn.cache_handler.common import find_git_repo
 from git_cdn.conftest import CREDS
 from git_cdn.conftest import GITLAB_REPO_TEST_GROUP
 from git_cdn.conftest import GITSERVER_UPSTREAM
 from git_cdn.conftest import MANIFEST_PATH
-from git_cdn.script.clean_cache import find_git_repo
-from git_cdn.script.clean_cache import find_older_repo
 from git_cdn.upload_pack import generate_url
 
 repolist = [
@@ -75,17 +74,3 @@ async def test_find_git_repo(repocache):
         in list_gits
     )
     assert len(list_gits) == 2
-
-
-async def test_find_old(oldrepocache):
-    gitcdn_cache = oldrepocache
-    gitcdn_cache.chdir()
-    assert len(find_older_repo(5)) == 1
-    assert not len(find_older_repo(8))
-
-
-async def test_find_old_atime(old_atime_repocache):
-    gitcdn_cache = old_atime_repocache
-    gitcdn_cache.chdir()
-    assert not len(find_older_repo(5))
-    assert not len(find_older_repo(8))

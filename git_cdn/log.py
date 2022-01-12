@@ -1,5 +1,6 @@
 # Standard Library
 import logging
+import numbers
 import socket
 import sys
 import uuid
@@ -16,23 +17,25 @@ g_version = "unknown"
 g_host = socket.gethostname()
 
 
-# Workaround for sentry, sentry has a hook on logging, and uses internally str(record.msg)
-# if record.msg is a dict, it is unreadable, so return only the message instead
-class StructDict(dict):
-    def __str__(self):
-        if "message" in self:
-            return self["message"]
-        return super().__str__()
-
-
 # Move all event_dict fields into extra, and rename event to message for vector.dev
 def extra_field(logger, method_name, event_dict):
+    if "event" not in event_dict:
+        return event_dict
     message = event_dict.pop("event")
-    newdict = StructDict()
+    newdict = {}
     newdict["message"] = message
     if event_dict:
         newdict["extra"] = event_dict
     return newdict
+
+
+# Move all event_dict fields into extra, and rename event to message for vector.dev
+def un_extra_field(logger, method_name, event_dict):
+    if "extra" in event_dict:
+        event_dict.update(event_dict.pop("extra"))
+    if "message" in event_dict:
+        event_dict["event"] = event_dict.pop("message")
+    return event_dict
 
 
 gunicorn_access = [
@@ -109,27 +112,36 @@ class UdpJsonHandler(DatagramHandler):
         return json_msg.encode()
 
 
+shared_processors = [
+    structlog.stdlib.filter_by_level,
+    structlog.stdlib.PositionalArgumentsFormatter(),
+    structlog.processors.UnicodeDecoder(),
+    structlog.processors.StackInfoRenderer(),
+    structlog.processors.format_exc_info,
+    extra_field,
+    structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+]
+
+
+def configure_log():
+    logging.getLogger().setLevel(logging.DEBUG)
+    structlog.configure(
+        processors=shared_processors,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+
 def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
     if version:
         global g_version
         g_version = version
 
     rlog = logging.getLogger()
-    structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            extra_field,
-            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-        ],
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
+    configure_log()
+
     # wait for host dns to be reachable to avoid dropping first logs
     wait_host_resolve(host)
 
@@ -141,40 +153,35 @@ def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
     bind_threadlocal(uuid=str(uuid.uuid4()))
 
 
-g_log_configured = False
-
-
-def enable_console_logs():
-    global g_log_configured
-
-    if g_log_configured:
-        return
-    g_log_configured = True
-    shared_processors = [
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="%H:%M.%S"),
-    ]
-
-    structlog.configure(
-        processors=shared_processors
-        + [
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-        ],
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
+def enable_console_logs(level=None, output=sys.stdout):
+    configure_log()
     formatter = structlog.stdlib.ProcessorFormatter(
-        processor=structlog.dev.ConsoleRenderer(),
-        foreign_pre_chain=shared_processors,
+        processors=[
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="%H:%M.%S"),
+            un_extra_field,
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.dev.ConsoleRenderer(),
+        ],
     )
+
+    stderr_level = logging.ERROR
+    err_handler = logging.StreamHandler(sys.stderr)
+    err_handler.setLevel(stderr_level)
+    err_handler.setFormatter(formatter)
+
+    out_handler = logging.StreamHandler(output)
+    if level:
+        out_handler.setLevel(level)
+    out_handler.setFormatter(formatter)
+
+    class ignoreError(logging.Filter):
+        def filter(self, record):
+            return record.levelno < stderr_level
+
+    out_handler.addFilter(ignoreError())
 
     rlog = logging.getLogger()
-    out_handler = logging.StreamHandler(sys.stdout)
-    out_handler.setFormatter(formatter)
     rlog.addHandler(out_handler)
+    rlog.addHandler(err_handler)
