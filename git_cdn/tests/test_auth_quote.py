@@ -2,7 +2,7 @@
 import base64
 
 # Third Party Libraries
-from git_cdn.app import get_url_creds_from_auth
+from git_cdn.util import get_url_creds_from_auth
 
 
 def basic(login, pwd):

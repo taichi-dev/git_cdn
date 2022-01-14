@@ -7,6 +7,7 @@ default:
     # forced to python:3.9.7 because of the following issue on python 3.9.8:
     # https://www.mail-archive.com/debian-bugs-dist@lists.debian.org/msg1829077.html
     image: python:3.9.7
+    interruptible: true
     before_script:
         - export PATH=$HOME/.local/bin:$PATH
         - apt-get update && apt-get install -y git-lfs

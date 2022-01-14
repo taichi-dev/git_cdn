@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from git_cdn.upload_pack import RepoCache
+from git_cdn.repo_cache import RepoCache
 
 
 def run_git_fake(*args, **kwargs):
@@ -16,7 +16,7 @@ def run_git_fake(*args, **kwargs):
 
 @pytest.mark.asyncio
 async def test_run(mocker):
-    mocker.patch("git_cdn.upload_pack.exec_git", run_git_fake)
+    mocker.patch("git_cdn.repo_cache.exec_git", run_git_fake)
     spycom = mocker.spy(asyncio.subprocess.Process, "communicate")
     rcache = RepoCache("/tmp", "fake", "fake")
     task = asyncio.create_task(rcache.run_git("fake"))
@@ -28,7 +28,7 @@ async def test_run(mocker):
 
 @pytest.mark.asyncio
 async def test_cancel_run(mocker):
-    mocker.patch("git_cdn.upload_pack.exec_git", run_git_fake)
+    mocker.patch("git_cdn.repo_cache.exec_git", run_git_fake)
     spycom = mocker.spy(asyncio.subprocess.Process, "communicate")
     rcache = RepoCache("/tmp", "fake", "fake")
     task = asyncio.create_task(rcache.run_git("fake"))

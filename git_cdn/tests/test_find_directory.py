@@ -1,5 +1,5 @@
 # Third Party Libraries
-from git_cdn.app import find_gitpath
+from git_cdn.util import find_gitpath
 
 
 def test_find_gitpath():

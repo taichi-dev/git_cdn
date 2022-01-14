@@ -3,12 +3,10 @@ import argparse
 import ast
 import logging
 import os
-import sys
 from dataclasses import dataclass
 from dataclasses import field
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version
-from shutil import rmtree
 from typing import List
 
 import sentry_sdk
