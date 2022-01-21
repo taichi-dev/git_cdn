@@ -43,6 +43,9 @@ class LFSCacheFile:
         os.utime(self.filename, None)
 
     async def checksum(self):
+        # We do not want to compute the sha using python stlib
+        # - file may be huge, native checksum will have better perf
+        # - avoid python memory allocations and GC operations
         p = await asyncio.create_subprocess_exec(
             "sha256sum",
             self.filename,
@@ -58,6 +61,7 @@ class LFSCacheFile:
                 lfs_filename=self.filename,
                 lfs_expected_checksum=self.hash,
                 lfs_actual_checksum=cs,
+                pid=p.pid,
             )
         return cs == self.hash
 
