@@ -298,9 +298,11 @@ class GitCDN:
         fix_headers(headers)
         query = request.query
         start_time = time.time()
+
         try:
             async with ClientSessionWithRetry(
                 self.get_session,
+                range(500, 600),
                 request.method.lower(),
                 upstream_url,
                 headers=headers,
@@ -392,6 +394,7 @@ class GitCDN:
             headers = {"Authorization": auth}
             async with ClientSessionWithRetry(
                 self.get_session,
+                range(500, 600),
                 "get",
                 upstream_url,
                 headers=headers,
