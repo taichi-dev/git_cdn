@@ -22,6 +22,9 @@ poetry-install:
 	@$(PIP) install --user --upgrade "pip$(PIP_VERSION)" "poetry$(POETRY_VERSION)"
 	@$(POETRY) run pip install "pip$(PIP_VERSION)"
 
+git-config:
+	git config --global uploadpack.allowfilter true
+
 install:
 	@$(POETRY) install
 
@@ -58,16 +61,16 @@ pylint:
 set-version:
 	$(POETRY) version $(GITCDN_VERSION)$(GITCDN_LOCALCHANGE)
 
-test:
+test: git-config
 	@$(POETRY) run pytest --strict $(MODULE)
 
-integration-test:
+integration-test: git-config
 	@$(POETRY) run pytest --strict git_cdn/tests/test_integ.py
 
-test-v:
+test-v: git-config
 	@$(POETRY) run pytest --strict -svv --durations=30 $(MODULE)
 
-test-coverage:
+test-coverage: git-config
 	@$(POETRY) run pytest --junitxml=testresults.xml -v --cov --cov-report term-missing --cov-report html:`pwd`/coverage_html  $(MODULE)
 
 docker:
@@ -88,9 +91,9 @@ push: githook
 	git push origin --all
 	git push origin --tags
 
-run:
+run: git-config
 	. ./tosource && \
-	$(POETRY) run gunicorn -c config.py git_cdn.app:app --workers=4
+	$(POETRY) run gunicorn -c config.py git_cdn.app:app --workers=4 -b :8000
 
 
 # aliases to gracefully handle typos on poor dev's terminal
