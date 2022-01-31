@@ -131,7 +131,9 @@ def log_proc_if_error(proc, cmd):
 
 async def wait_proc(proc, cmd, timeout):
     try:
-        await asyncio.wait_for(proc.wait(), timeout=timeout)
+        if proc.returncode is None:
+            await asyncio.wait({proc.wait()}, timeout=timeout)
+
         log_proc_if_error(proc, cmd)
         return True
     except asyncio.TimeoutError:
@@ -142,9 +144,6 @@ async def wait_proc(proc, cmd, timeout):
 async def ensure_proc_terminated(
     proc: Process, cmd: str, timeout=GIT_PROCESS_WAIT_TIMEOUT
 ):
-    if proc.returncode is not None:
-        log_proc_if_error(proc, cmd)
-        return
     if await wait_proc(proc, cmd, timeout):
         return
     log.error(
