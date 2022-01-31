@@ -23,7 +23,7 @@ def check_md5_and_size(body, bundle_file, md5sum, size):
     assert h.digest() == md5sum
 
 
-async def test_integration_basic(loop, aiohttp_client):
+async def test_integration_basic(loop, aiohttp_client, tmpworkdir):
     # this project has the smallest bundle size (1M)
     cbm = CloneBundleManager("platform_external_javapoet.git")
     bundle_file = (

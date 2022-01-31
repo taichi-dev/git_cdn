@@ -153,11 +153,11 @@ class GitCDN:
         if self.proxysession is None:
             conn = TCPConnector(
                 limit=self.MAX_CONNECTIONS,
-                verify_ssl=os.getenv("GIT_SSL_NO_VERIFY") is None,
+                ssl=os.getenv("GIT_SSL_NO_VERIFY") is None,
             )
             # session can be indefinitively long, but we need at least some activity every minute
             timeout = aiohttp.ClientTimeout(
-                total=0, connect=60, sock_connect=60, sock_read=60
+                total=None, connect=60, sock_connect=60, sock_read=60
             )
             self.proxysession = ClientSession(
                 # supports deflate brotli and gzip

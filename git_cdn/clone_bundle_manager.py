@@ -29,9 +29,9 @@ def new_session():
     global http_session
 
     conn = TCPConnector(
-        limit=MAX_CONNECTIONS, verify_ssl=os.getenv("GIT_SSL_NO_VERIFY") is None
+        limit=MAX_CONNECTIONS, ssl=os.getenv("GIT_SSL_NO_VERIFY") is None
     )
-    timeout = ClientTimeout(total=0)
+    timeout = ClientTimeout(total=None)
     http_session = ClientSession(
         # supports deflate brotli and gzip
         connector=conn,
@@ -126,12 +126,11 @@ class CloneBundleManager:
                 md5sum, expected_size = self.get_md5sum_and_size(request)
                 if request.status != 200 or md5sum is None or expected_size is None:
                     return web.Response(text="bundle unavailable", status=404)
+                response = web.StreamResponse(status=200, headers=request.headers)
+                writer = await response.prepare(server_request)
         except ClientHttpProxyError:
             log.warning("HTTP Proxy error, convert to 404")
             return web.Response(text="bundle unavailable", status=404)
-
-        response = web.StreamResponse(status=200, headers=request.headers)
-        writer = await response.prepare(server_request)
 
         async with lock(self.lock, mode=fcntl.LOCK_SH):
             if os.path.exists(self.bundle_file) and expected_size:
