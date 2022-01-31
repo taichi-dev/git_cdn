@@ -97,11 +97,11 @@ async def parse(filename):
     return plcp
 
 
-async def test_parse_pkt_chunk(loop):
+async def test_parse_pkt_chunk(event_loop):
     await parse("pack1")
 
 
-async def test_parse_pkt_chunk2(loop):
+async def test_parse_pkt_chunk2(event_loop):
     with pytest.raises(PacketLineChunkParser.ParseError):
         await parse("pack2")
 
@@ -116,12 +116,12 @@ async def bench_chunk_parser():
     assert chunks
 
 
-def sync_bench(loop):
-    loop.run_until_complete(bench_chunk_parser())
+def sync_bench(event_loop):
+    event_loop.run_until_complete(bench_chunk_parser())
 
 
-def test_benchmark_chunk_parser(loop, benchmark):
-    benchmark(sync_bench, loop)
+def test_benchmark_chunk_parser(event_loop, benchmark):
+    benchmark(sync_bench, event_loop)
 
 
 if __name__ == "__main__":

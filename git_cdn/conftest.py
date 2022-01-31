@@ -24,10 +24,7 @@ def tmpworkdir(tmpdir):
 
 @pytest.fixture
 def app(tmpworkdir):
-    def _(cached=False):
-        return git_cdn_app.make_app(GITSERVER_UPSTREAM)
-
-    yield _
+    yield git_cdn_app.make_app(GITSERVER_UPSTREAM)
 
 
 class FakeClient:

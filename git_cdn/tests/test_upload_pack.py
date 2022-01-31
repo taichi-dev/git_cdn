@@ -87,7 +87,7 @@ def assert_upload_ok(data):
     assert data.endswith(b"0000")
 
 
-async def test_basic(tmpdir, loop):
+async def test_basic(tmpdir, event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
         MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
@@ -98,7 +98,7 @@ async def test_basic(tmpdir, loop):
     assert_upload_ok(writer.output)
 
 
-async def test_huge(tmpdir, loop):
+async def test_huge(tmpdir, event_loop):
     # we write 1000 times the same want (simulating a repo with tons of branch on the same commit)
     HUGE_CLONE_INPUT = (
         b"0098want 4284b1521b200ba4934ee710a4a538549f1f0f97 multi_ack_detailed no-done "
@@ -115,7 +115,7 @@ async def test_huge(tmpdir, loop):
     assert_upload_ok(writer.output)
 
 
-async def test_huge2(tmpdir, loop):
+async def test_huge2(tmpdir, event_loop):
     # we write 15000 times the same unknow want
     # git upload pack will close stdin before reading all the input,
     # and write the error to stdout (occurs in production on mirrors repo)
@@ -135,7 +135,7 @@ async def test_huge2(tmpdir, loop):
     assert b"not our ref" in data
 
 
-async def test_fetch_needed(tmpdir, loop):
+async def test_fetch_needed(tmpdir, event_loop):
     workdir = tmpdir / "workdir"
     writer = FakeStreamWriter()
 
@@ -156,7 +156,7 @@ async def test_fetch_needed(tmpdir, loop):
     assert_upload_ok(writer.output)
 
 
-async def test_shallow(tmpdir, loop):
+async def test_shallow(tmpdir, event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
         MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
@@ -169,7 +169,7 @@ async def test_shallow(tmpdir, loop):
     assert full.endswith(b"0000")
 
 
-async def test_shallow_trunc(tmpdir, loop):
+async def test_shallow_trunc(tmpdir, event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
         MANIFEST_PATH,
@@ -184,7 +184,7 @@ async def test_shallow_trunc(tmpdir, loop):
     assert writer.output == b"0000"
 
 
-async def test_shallow_trunc2(tmpdir, loop):
+async def test_shallow_trunc2(tmpdir, event_loop):
     writer = FakeStreamWriter()
     # make sur the cache is warm
     proc = UploadPackHandler(
@@ -216,7 +216,7 @@ async def test_shallow_trunc2(tmpdir, loop):
         pytest.param(CLONE_INPUT[:-1], id="detected by gitcdn input parser"),
     ],
 )
-async def test_wrong_input(tmpdir, loop, clone_input):
+async def test_wrong_input(tmpdir, event_loop, clone_input):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
         MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
@@ -229,7 +229,7 @@ async def test_wrong_input(tmpdir, loop, clone_input):
         assert full[4:7] == b"ERR"
 
 
-async def test_flush_input(tmpdir, loop):
+async def test_flush_input(tmpdir, event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
         MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
@@ -260,7 +260,7 @@ async def test_flush_input(tmpdir, loop):
     ],
     ids=["all refs in repo", "missing refs in repo"],
 )
-async def test_missing_want(tmpdir, loop, ref, missing_ref):
+async def test_missing_want(tmpdir, event_loop, ref, missing_ref):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
         MANIFEST_PATH, writer, CREDS, GITSERVER_UPSTREAM, PROTOCOL_VERSION
@@ -272,7 +272,7 @@ async def test_missing_want(tmpdir, loop, ref, missing_ref):
     assert (await proc.missing_want(ref)) == missing_ref
 
 
-async def test_ensure_input_wants_in_rcache(tmpdir, loop, mocker):
+async def test_ensure_input_wants_in_rcache(tmpdir, event_loop, mocker):
     wants = [
         b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
         b"4284b1521b200ba4934ee710a4a538549f1f0f97",
@@ -305,7 +305,7 @@ async def test_ensure_input_wants_in_rcache(tmpdir, loop, mocker):
     mock_update.assert_called_once()
 
 
-async def test_unknown_want_cache(tmpdir, loop, mocker):
+async def test_unknown_want_cache(tmpdir, event_loop, mocker):
     """tests that the 'uploadPack' method runs well
     when running 'execute' method with a repo with missing 'wants'
     """
