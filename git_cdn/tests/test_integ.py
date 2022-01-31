@@ -114,7 +114,9 @@ async def test_git_lfs_low_level_gzip(make_client, event_loop, app, request):
 
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
-async def test_basic(make_client, event_loop, tmpdir, app, header_for_git, protocol_version):
+async def test_basic(
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
+):
     assert event_loop
 
     app = app()
@@ -306,7 +308,9 @@ async def test_git_lfs(
 
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
-async def test_push(make_client, event_loop, tmpdir, protocol_version, app, header_for_git):
+async def test_push(
+    make_client, event_loop, tmpdir, protocol_version, app, header_for_git
+):
     assert event_loop
     if "PUSH_TESTS" not in os.environ:
         pytest.skip("cannot run push tests in public pre-commit CI")

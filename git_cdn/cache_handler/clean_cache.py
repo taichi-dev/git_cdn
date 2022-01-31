@@ -186,7 +186,7 @@ def must_clean(path, threshold, total_clean_size, delete):
 
 
 def clean_cdn_cache(caches, threshold, delete):
-    threshold = threshold * 1024 ** 3
+    threshold = threshold * 1024**3
     total_clean_size = 0
     cleaned_files = []
     for k in caches:

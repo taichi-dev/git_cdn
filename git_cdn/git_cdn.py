@@ -292,7 +292,7 @@ class GitCDN:
         return await self.proxify_with_data(request, request.content)
 
     async def proxify_with_data(self, request, data):
-        """Gitcdn acts as a dumb proxy to simplfy git 'insteadof' configuration. """
+        """Gitcdn acts as a dumb proxy to simplfy git 'insteadof' configuration."""
         upstream_url = self.upstream + request.path.lstrip("/")
         headers = request.headers.copy()
         fix_headers(headers)

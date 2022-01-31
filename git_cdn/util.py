@@ -85,7 +85,7 @@ def backoff(start, count):
     [0.1, 0.2, 0.4, 0.8, 1.6]
     """
     for x in range(count):
-        yield start * 2 ** x
+        yield start * 2**x
 
 
 def get_url_creds_from_auth(auth):
