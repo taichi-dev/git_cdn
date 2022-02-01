@@ -14,8 +14,8 @@ from git_cdn.conftest import GITSERVER_UPSTREAM
 from git_cdn.conftest import MANIFEST_PATH
 
 
-async def test_bad_url(make_client, loop, app):
-    assert loop
+async def test_bad_url(make_client, event_loop, app):
+    assert event_loop
     app = app()
     client = await make_client(app)
     resp = await client.get(
@@ -26,8 +26,8 @@ async def test_bad_url(make_client, loop, app):
     assert resp.headers["Location"] == GITSERVER_UPSTREAM + "users/sign_in"
 
 
-async def test_proxy_no_content_encoding(make_client, loop, app, request):
-    assert loop
+async def test_proxy_no_content_encoding(make_client, event_loop, app, request):
+    assert event_loop
     app = app()
     client = await make_client(app)
     resp = await client.get(
@@ -41,8 +41,8 @@ async def test_proxy_no_content_encoding(make_client, loop, app, request):
     assert resp.headers.get("Content-Encoding") != "gzip"
 
 
-async def test_git_lfs_low_level(make_client, loop, app, request):
-    assert loop
+async def test_git_lfs_low_level(make_client, event_loop, app, request):
+    assert event_loop
     app = app()
     client = await make_client(app)
     resp = await client.post(
@@ -78,8 +78,8 @@ async def test_git_lfs_low_level(make_client, loop, app, request):
     assert GITSERVER_UPSTREAM not in href
 
 
-async def test_git_lfs_low_level_gzip(make_client, loop, app, request):
-    assert loop
+async def test_git_lfs_low_level_gzip(make_client, event_loop, app, request):
+    assert event_loop
     app = app()
     client = await make_client(app)
     resp = await client.post(
@@ -114,8 +114,10 @@ async def test_git_lfs_low_level_gzip(make_client, loop, app, request):
 
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
-async def test_basic(make_client, loop, tmpdir, app, header_for_git, protocol_version):
-    assert loop
+async def test_basic(
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
+):
+    assert event_loop
 
     app = app()
     client = await make_client(app)
@@ -136,9 +138,9 @@ async def test_basic(make_client, loop, tmpdir, app, header_for_git, protocol_ve
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_huge_branch(
-    make_client, loop, tmpdir, app, header_for_git, protocol_version
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
 ):
-    assert loop
+    assert event_loop
 
     bigbranch = "I_DONT_CREATE_LONG_BRANCH_NAME" * 50
     app = app()
@@ -167,9 +169,9 @@ async def test_huge_branch(
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_no_ending_dot_git(
-    make_client, loop, tmpdir, app, header_for_git, protocol_version
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
 ):
-    assert loop
+    assert event_loop
 
     app = app()
     client = await make_client(app)
@@ -190,9 +192,9 @@ async def test_no_ending_dot_git(
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_basic_shallow(
-    make_client, loop, tmpdir, app, header_for_git, protocol_version
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
 ):
-    assert loop
+    assert event_loop
 
     app = app()
     client = await make_client(app)
@@ -214,9 +216,9 @@ async def test_basic_shallow(
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_basic_filter(
-    make_client, loop, tmpdir, app, header_for_git, protocol_version
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
 ):
-    assert loop
+    assert event_loop
 
     app = app()
     client = await make_client(app)
@@ -239,9 +241,9 @@ async def test_basic_filter(
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_git_lfs(
-    make_client, loop, tmpdir, app, monkeypatch, header_for_git, protocol_version
+    make_client, event_loop, tmpdir, app, monkeypatch, header_for_git, protocol_version
 ):
-    assert loop
+    assert event_loop
 
     app = app()
     client = await make_client(app)
@@ -306,8 +308,10 @@ async def test_git_lfs(
 
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
-async def test_push(make_client, loop, tmpdir, protocol_version, app, header_for_git):
-    assert loop
+async def test_push(
+    make_client, event_loop, tmpdir, protocol_version, app, header_for_git
+):
+    assert event_loop
     if "PUSH_TESTS" not in os.environ:
         pytest.skip("cannot run push tests in public pre-commit CI")
 
@@ -364,7 +368,7 @@ async def test_push(make_client, loop, tmpdir, protocol_version, app, header_for
 @pytest.mark.parametrize("num_times", range(2, 43, 10))
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_parallel(
-    make_client, loop, tmpdir, num_times, protocol_version, app, header_for_git
+    make_client, event_loop, tmpdir, num_times, protocol_version, app, header_for_git
 ):
     """test N access in parallel from 2 12 22 32 42"""
 
@@ -394,7 +398,7 @@ async def test_parallel(
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_parallel_with_pack_cache(
     make_client,
-    loop,
+    event_loop,
     tmpdir,
     num_times,
     protocol_version,
@@ -407,7 +411,7 @@ async def test_parallel_with_pack_cache(
     tmpdir.join(str(num_times))
     monkeypatch.setenv("WORKING_DIRECTORY", tmpdir)
 
-    assert loop
+    assert event_loop
     app = app()
     client = await make_client(app)
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
@@ -436,12 +440,12 @@ async def test_parallel_with_pack_cache(
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_pack_cache_with_depth(
-    make_client, loop, tmpdir, protocol_version, app, monkeypatch, header_for_git
+    make_client, event_loop, tmpdir, protocol_version, app, monkeypatch, header_for_git
 ):
     monkeypatch.setenv("WORKING_DIRECTORY", tmpdir)
     monkeypatch.setenv("PACK_CACHE_DEPTH", "true")
 
-    assert loop
+    assert event_loop
     app = app()
     client = await make_client(app)
     url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
@@ -467,9 +471,9 @@ async def test_pack_cache_with_depth(
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_clone_with_bundle(
-    make_client, loop, tmpdir, app, header_for_git, protocol_version
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
 ):
-    assert loop
+    assert event_loop
     app = app()
     DNSMASQ_PATH = GITLAB_REPO_TEST_GROUP + "/platform_external_dnsmasq.git"
     client = await make_client(app)
@@ -496,9 +500,9 @@ async def test_clone_with_bundle(
 
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_clone_with_bundle_but_not_exists(
-    make_client, loop, tmpdir, app, header_for_git, protocol_version
+    make_client, event_loop, tmpdir, app, header_for_git, protocol_version
 ):
-    assert loop
+    assert event_loop
     app = app()
     DNSMASQ_PATH = GITLAB_REPO_TEST_GROUP + "/404/platform_external_dnsmasq.git"
     client = await make_client(app)
@@ -523,8 +527,8 @@ async def test_clone_with_bundle_but_not_exists(
     assert (await proc.wait()) == 128
 
 
-async def test_browser_ua(make_client, loop, app, request):
-    assert loop
+async def test_browser_ua(make_client, event_loop, app, request):
+    assert event_loop
     app = app()
     client = await make_client(app)
     resp = await client.get(
@@ -540,8 +544,8 @@ async def test_browser_ua(make_client, loop, app, request):
     assert resp.headers["Location"] == GITSERVER_UPSTREAM + "group"
 
 
-async def test_clonebundle_404(make_client, loop, app, request):
-    assert loop
+async def test_clonebundle_404(make_client, event_loop, app, request):
+    assert event_loop
     app = app()
     client = await make_client(app)
     resp = await client.get(
@@ -552,8 +556,8 @@ async def test_clonebundle_404(make_client, loop, app, request):
     assert resp.status == 404
 
 
-async def test_clonebundle_200(make_client, loop, app, request):
-    assert loop
+async def test_clonebundle_200(make_client, event_loop, app, request):
+    assert event_loop
     app = app()
     client = await make_client(app)
     resp = await client.get(

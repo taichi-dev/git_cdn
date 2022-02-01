@@ -14,8 +14,8 @@ repolist = [
 
 
 @pytest.fixture
-async def repocache(make_client, loop, tmpdir, app, header_for_git):
-    assert loop
+async def repocache(make_client, event_loop, tmpdir, app, header_for_git):
+    assert event_loop
 
     app = app()
     client = await make_client(app)

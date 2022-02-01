@@ -31,14 +31,14 @@ async def cache_pack(hash):
     return pc
 
 
-async def test_pack_cache_create(tmpworkdir, loop):
+async def test_pack_cache_create(tmpworkdir, event_loop):
     pc = await cache_pack("1234")
     fakewrite = FakeStreamWriter()
     await pc.send_pack(fakewrite)
     assert fakewrite.output == get_data("pack_cache.bin")
 
 
-async def test_pack_cache_clean(tmpworkdir, loop):
+async def test_pack_cache_clean(tmpworkdir, event_loop):
     # gitlab-ci filesystem has 1 second precision
     sleep = 0
     if "CI_JOB_TOKEN" in os.environ:
@@ -65,7 +65,7 @@ async def test_pack_cache_clean(tmpworkdir, loop):
     assert pc3.exists()
 
 
-async def test_pack_cache_abort(tmpworkdir, loop):
+async def test_pack_cache_abort(tmpworkdir, event_loop):
     pc = PackCache("failed")
 
     fakeread = DataReader(get_data("upload_pack_trunc.bin"))
