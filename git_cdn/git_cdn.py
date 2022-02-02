@@ -221,6 +221,16 @@ class GitCDN:
         bind_contextvars(ctx={"uuid": str(uuid.uuid4()), "path": str(git_path)})
 
         extract_headers_to_context(request.headers)
+        h = dict(request.headers)
+        hide_auth_on_headers(h)
+        log.debug(
+            "handling response",
+            request_path=request.path,
+            path=path,
+            git_path=git_path,
+            request_headers_dict=h,
+            parallel_request=parallel_request,
+        )
         # For the case of clone bundle, we don't enforce authentication, and browser redirection
         if method == "get" and path.endswith("/clone.bundle"):
             bind_contextvars(handler="clone-bundle")
@@ -232,16 +242,6 @@ class GitCDN:
         redirect_browsers(request, self.upstream)
         # FIXME: check_auth maybe implementable via middleware
         check_auth(request)
-        h = dict(request.headers)
-        hide_auth_on_headers(h)
-        log.debug(
-            "handling response",
-            request_path=request.path,
-            path=path,
-            git_path=git_path,
-            request_headers_dict=h,
-            parallel_request=parallel_request,
-        )
 
         protocol_version = 1
         git_protocol = h.get("Git-Protocol")
