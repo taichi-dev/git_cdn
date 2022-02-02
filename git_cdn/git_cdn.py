@@ -276,16 +276,19 @@ class GitCDN:
         return await self.proxify(request)
 
     async def routing_handler(self, request):
-        start_time = time.time()
+        self.start_time = time.time()
+        response = None
         global parallel_request
         try:
             parallel_request += 1
-            return await self._routing_handler(request)
+            response = await self._routing_handler(request)
+            return response
         except (asyncio.CancelledError, CancelledError):
             bind_contextvars(canceled=True)
-            log.warning("request canceled", resp_time=time.time() - start_time)
+            log.warning("request canceled", resp_time=time.time() - self.start_time)
             raise
         finally:
+            self.stats(response)
             parallel_request -= 1
 
     async def proxify(self, request):
@@ -297,7 +300,6 @@ class GitCDN:
         headers = request.headers.copy()
         fix_headers(headers)
         query = request.query
-        start_time = time.time()
         try:
             async with ClientSessionWithRetry(
                 self.get_session,
@@ -331,7 +333,7 @@ class GitCDN:
                     resp_status=response.status,
                     # only dump the first value in multidict
                     resp_headers=dict(response.headers),
-                    resp_time=time.time() - start_time,
+                    resp_time=time.time() - self.start_time,
                 )
 
                 if response.status < 400:
@@ -342,7 +344,7 @@ class GitCDN:
             log.exception(
                 "Exception when connecting",
                 upstream_url=upstream_url,
-                resp_time=time.time() - start_time,
+                resp_time=time.time() - self.start_time,
             )
             error_text = "Bad gateway"
             error_code = 502
@@ -380,7 +382,6 @@ class GitCDN:
         else:
             parsed_content = UploadPackInputParser(request_content)
 
-        start_time = time.time()
         bind_contextvars(upload_pack_status="direct", canceled=False)
         response = None
         try:
@@ -437,18 +438,6 @@ class GitCDN:
             bind_contextvars(upload_pack_status="exception")
             log.exception("Exception during UploadPack handling")
             raise
-        finally:
-            if hasattr(response, "_payload_writer"):
-                output_size = getattr(response._payload_writer, "output_size", 0)
-            else:
-                output_size = 0
-            log.info(
-                "Response stats",
-                response_size=output_size,
-                response_status=getattr(response, "status", 500),
-                resp_time=time.time() - start_time,
-                sema_count=self.get_sema_count(),
-            )
         return response
 
     def get_sema_count(self):
@@ -458,3 +447,23 @@ class GitCDN:
             except NotImplementedError:
                 return 0
         return 0
+
+    def stats(self, response=None):
+        response_stats = {}
+        if response is not None:
+            output_size = 0
+            if hasattr(response, "_payload_writer"):
+                output_size = getattr(response._payload_writer, "output_size", 0)
+            if not output_size:
+                output_size = response.content_length
+            response_stats = dict(
+                response_size=output_size,
+                response_status=getattr(response, "status", 500),
+            )
+        log.info(
+            "Response stats",
+            **response_stats,
+            resp_time=time.time() - self.start_time,
+            sema_count=self.get_sema_count(),
+        )
+        return response
