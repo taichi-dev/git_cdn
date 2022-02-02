@@ -118,7 +118,7 @@ class GitCDN:
             host, port = log_server.split(":")
             enable_udp_logs(host, int(port), GITCDN_VERSION)
         else:
-            enable_console_logs()
+            enable_console_logs(context=os.getenv("LOGGING_CONTEXT"))
 
         logging.getLogger("gunicorn.access").propagate = True
         app.gitcdn = self
