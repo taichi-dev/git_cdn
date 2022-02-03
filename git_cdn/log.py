@@ -10,6 +10,7 @@ from time import sleep
 # Third Party Libraries
 import structlog
 import ujson
+from structlog.contextvars import get_contextvars
 from structlog.threadlocal import bind_threadlocal
 from structlog.threadlocal import clear_threadlocal
 
@@ -27,6 +28,11 @@ def extra_field(logger, method_name, event_dict):
     if event_dict:
         newdict["extra"] = event_dict
     return newdict
+
+
+def ctx_fields(logger, method_name, event_dict):
+    event_dict.update(get_contextvars())
+    return event_dict
 
 
 # Move all event_dict fields into extra, and rename event to message for vector.dev
@@ -153,18 +159,20 @@ def enable_udp_logs(host="127.0.0.1", port=3465, version=None):
     bind_threadlocal(uuid=str(uuid.uuid4()))
 
 
-def enable_console_logs(level=None, output=sys.stdout):
+def enable_console_logs(level=None, output=sys.stdout, context=False):
     configure_log()
-    formatter = structlog.stdlib.ProcessorFormatter(
-        processors=[
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.processors.TimeStamper(fmt="%H:%M.%S"),
-            un_extra_field,
-            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            structlog.dev.ConsoleRenderer(),
-        ],
-    )
+    processors = [
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="%H:%M.%S"),
+        un_extra_field,
+        structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+    ]
+    if context:
+        processors.append(ctx_fields)
+    processors.append(structlog.dev.ConsoleRenderer())
+
+    formatter = structlog.stdlib.ProcessorFormatter(processors=processors)
 
     stderr_level = logging.ERROR
     err_handler = logging.StreamHandler(sys.stderr)
