@@ -272,6 +272,7 @@ class GitCDN:
             if os.path.exists(fn):
                 self.app.served_lfs_objects += 1
                 return web.Response(body=open(fn, "rb"))
+
         bind_contextvars(handler="redirect")
         return await self.proxify(request)
 
@@ -285,7 +286,9 @@ class GitCDN:
             return response
         except (asyncio.CancelledError, CancelledError):
             bind_contextvars(canceled=True)
-            log.warning("request canceled", resp_time=time.time() - self.start_time)
+            raise
+        except Exception as e:
+            bind_contextvars(exception=e.__class__.__name__)
             raise
         finally:
             self.stats(response)
