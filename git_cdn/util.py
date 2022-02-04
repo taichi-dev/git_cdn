@@ -157,3 +157,11 @@ async def ensure_proc_terminated(
     if await wait_proc(proc, cmd, KILLED_PROCESS_TIMEOUT):
         return
     log.error("Process didn't exit after kill", cmd=cmd, pid=proc.pid, timeout=timeout)
+
+
+def object_module_name(o):
+    fn = ""
+    if hasattr(o, "__module__"):
+        fn = o.__module__ + "."
+    fn += o.__class__.__name__
+    return fn
