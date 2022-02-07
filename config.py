@@ -10,7 +10,11 @@ workers = int(os.getenv("NUM_WORKER", "8"))
 timeout = 3600
 # gitCDN requests take can be very long, so try to finish them before killing.
 graceful_timeout = 60 * 5
-worker_class = "aiohttp.worker.GunicornWebWorker"
+
+# you can try different worker class
+# - aiohttp.worker.GunicornWebWorker (default)
+# - aiohttp.worker.GunicornUVLoopWebWorker
+worker_class = os.getenv("GUNICORN_WORKER_CLASS", "aiohttp.worker.GunicornWebWorker")
 
 errorlog = "-"
 loglevel = "debug"

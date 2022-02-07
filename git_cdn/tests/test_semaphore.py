@@ -16,7 +16,7 @@ async def take_semaphore(sema):
         pass
 
 
-async def test_semaphore(event_loop):
+async def test_semaphore(cdn_event_loop):
     sema = BoundedSemaphore(1)
     sema.acquire()
 
@@ -31,7 +31,7 @@ async def test_semaphore(event_loop):
     assert task.done()
 
 
-async def test_multi_semaphore(event_loop):
+async def test_multi_semaphore(cdn_event_loop):
     sema = BoundedSemaphore(2)
 
     tasks = [asyncio.create_task(take_semaphore(sema)) for _ in range(100)]
@@ -44,7 +44,7 @@ async def test_multi_semaphore(event_loop):
     assert not sema.acquire(False)
 
 
-async def test_multi_semaphore2(event_loop):
+async def test_multi_semaphore2(cdn_event_loop):
     sema = BoundedSemaphore(2)
     n_tasks = 1000
 

@@ -118,6 +118,7 @@ WORKING_DIRECTORY=          # directory where to put cache files
 
 # gunicorn config
 GUNICORN_WORKER=8           # number of asyncio loops managed by gunicorn
+GUNICORN_WORKER_CLASS=      # specify different worker class
 
 # logging configuration
 LOGGING_SERVER=             # logging server (json over udp), works great with vector.dev. If not set, logging to console

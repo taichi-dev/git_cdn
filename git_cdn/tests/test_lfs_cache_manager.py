@@ -25,7 +25,7 @@ def cache_manager(tmpworkdir):
 
 
 @pytest.fixture
-def mocked_cache_manager(cache_manager, event_loop):
+def mocked_cache_manager(cache_manager, cdn_event_loop):
     cache_manager.download_object = mock.Mock(
         spec=cache_manager.download_object, return_value=asyncio.gather()
     )
@@ -51,7 +51,7 @@ DOWNLOAD_RESPONSE = {
 }
 
 
-async def test_hook_lfs_batch(mocked_cache_manager, event_loop):
+async def test_hook_lfs_batch(mocked_cache_manager, cdn_event_loop):
     cache_manager = mocked_cache_manager
     content = json.dumps(DOWNLOAD_RESPONSE)
     content = await cache_manager.hook_lfs_batch(content)
@@ -63,7 +63,7 @@ async def test_hook_lfs_batch(mocked_cache_manager, event_loop):
     assert content == exp
 
 
-async def test_hook_lfs_batch_no_object(mocked_cache_manager, event_loop):
+async def test_hook_lfs_batch_no_object(mocked_cache_manager, cdn_event_loop):
     cache_manager = mocked_cache_manager
     response = DOWNLOAD_RESPONSE.copy()
     del response["objects"]
@@ -72,7 +72,7 @@ async def test_hook_lfs_batch_no_object(mocked_cache_manager, event_loop):
     assert content == '{"transfer": "basic"}'
 
 
-async def test_hook_lfs_batch_no_action(mocked_cache_manager, event_loop):
+async def test_hook_lfs_batch_no_action(mocked_cache_manager, cdn_event_loop):
     cache_manager = mocked_cache_manager
     response = deepcopy(DOWNLOAD_RESPONSE)
     del response["objects"][0]["actions"]
@@ -84,7 +84,9 @@ async def test_hook_lfs_batch_no_action(mocked_cache_manager, event_loop):
     )
 
 
-async def test_download_object(cache_manager, tmpworkdir, event_loop, aiohttp_client):
+async def test_download_object(
+    cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
+):
     TEXT = "Hello, world"
 
     async def hello(request):
@@ -108,7 +110,7 @@ async def test_download_object(cache_manager, tmpworkdir, event_loop, aiohttp_cl
 
 
 async def test_download_object_bad_checksum(
-    cache_manager, tmpworkdir, event_loop, aiohttp_client
+    cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 
@@ -126,7 +128,7 @@ async def test_download_object_bad_checksum(
 
 
 async def test_download_object_cache_miss(
-    cache_manager, tmpworkdir, event_loop, aiohttp_client
+    cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 
@@ -147,7 +149,7 @@ async def test_download_object_cache_miss(
 
 
 async def test_download_object_cache_hit(
-    cache_manager, tmpworkdir, event_loop, aiohttp_client
+    cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 
@@ -175,7 +177,7 @@ async def test_download_object_cache_hit(
 
 
 async def test_download_object_cache_being_written(
-    cache_manager, tmpworkdir, event_loop, aiohttp_client
+    cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 
@@ -204,7 +206,7 @@ async def test_download_object_cache_being_written(
 
 
 async def test_download_object_download_error(
-    cache_manager, tmpworkdir, event_loop, aiohttp_client
+    cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
     TEXT = "Hello, world"
 
