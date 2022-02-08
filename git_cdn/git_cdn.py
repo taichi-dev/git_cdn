@@ -4,14 +4,17 @@ import logging
 import os
 import re
 import time
+import traceback
 import uuid
 from concurrent.futures import CancelledError
+from typing import Union
 
 import aiohttp
 from aiohttp import ClientSession
 from aiohttp import TCPConnector
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadRequest
+from aiohttp.web_exceptions import HTTPException
 from aiohttp.web_exceptions import HTTPPermanentRedirect
 from aiohttp.web_exceptions import HTTPUnauthorized
 from structlog import getLogger
@@ -31,6 +34,7 @@ from git_cdn.util import GITCDN_VERSION
 from git_cdn.util import GITLFS_OBJECT_RE
 from git_cdn.util import find_gitpath
 from git_cdn.util import get_url_creds_from_auth
+from git_cdn.util import object_module_name
 
 log = getLogger()
 parallel_request = 0
@@ -287,8 +291,17 @@ class GitCDN:
         except (asyncio.CancelledError, CancelledError):
             bind_contextvars(canceled=True)
             raise
+        except ConnectionResetError as e:
+            bind_contextvars(conn_reset=True)
+            response = e
+            raise
+        except HTTPException as e:
+            bind_contextvars(exception_reason=e.reason)
+            response = e
+            raise
         except Exception as e:
-            bind_contextvars(exception=e.__class__.__name__)
+            bind_contextvars(exception_type=object_module_name(e), exception_str=str(e))
+            response = e
             raise
         finally:
             self.stats(response)
@@ -430,18 +443,8 @@ class GitCDN:
                 protocol_version=protocol_version,
             )
             await proc.run(parsed_content)
-        except (asyncio.CancelledError, CancelledError):
-            bind_contextvars(canceled=True)
-            raise
-        except ConnectionResetError:
-            bind_contextvars(conn_reset=True)
-            raise
-        except HTTPUnauthorized as e:
-            log.warning("Unauthorized", unauthorized=e.reason)
-            raise
         except Exception:
             bind_contextvars(upload_pack_status="exception")
-            log.exception("Exception during UploadPack handling")
             raise
         return response
 
@@ -453,9 +456,9 @@ class GitCDN:
                 return 0
         return 0
 
-    def stats(self, response=None):
+    def stats(self, response: Union[Exception, web.Response] = None):
         response_stats = {}
-        if response is not None:
+        if isinstance(response, web.Response):
             output_size = 0
             if hasattr(response, "_payload_writer"):
                 output_size = getattr(response._payload_writer, "output_size", 0)
@@ -464,6 +467,11 @@ class GitCDN:
             response_stats = dict(
                 response_size=output_size,
                 response_status=getattr(response, "status", 500),
+            )
+        if isinstance(response, Exception):
+            e = response
+            response_stats["exception"] = "".join(
+                traceback.format_exception(type(e), e, e.__traceback__)
             )
         log.info(
             "Response stats",
