@@ -5,7 +5,7 @@ import os
 from multiprocessing import BoundedSemaphore
 from multiprocessing import cpu_count
 
-workers = int(os.getenv("NUM_WORKER", "8"))
+workers = int(os.getenv("GUNICORN_WORKER", "8"))
 # set a big timeout to avoid worker being killed, and leaking semaphore
 timeout = 3600
 # gitCDN requests take can be very long, so try to finish them before killing.
