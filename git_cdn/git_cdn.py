@@ -13,6 +13,7 @@ import aiohttp
 from aiohttp import ClientSession
 from aiohttp import TCPConnector
 from aiohttp import web
+from aiohttp.web_exceptions import HTTPBadGateway
 from aiohttp.web_exceptions import HTTPBadRequest
 from aiohttp.web_exceptions import HTTPException
 from aiohttp.web_exceptions import HTTPPermanentRedirect
@@ -341,14 +342,6 @@ class GitCDN:
                     resp_error = (await response.content.read()).decode(
                         errors="replace"
                     )
-                if response.status == 500:
-                    log.error(
-                        "request leading to err 500",
-                        request_content=data,
-                        # only dump the first value in multidict
-                        request_headers=dict(request.headers),
-                    )
-
                 log.debug(
                     "upstream returned",
                     upstream_url=upstream_url,
@@ -363,14 +356,8 @@ class GitCDN:
                     return await self.stream_response(request, response)
 
                 error_text, error_code = resp_error, response.status
-        except aiohttp.ClientConnectionError:
-            log.exception(
-                "Exception when connecting",
-                upstream_url=upstream_url,
-                resp_time=time.time() - self.start_time,
-            )
-            error_text = "Bad gateway"
-            error_code = 502
+        except aiohttp.ClientConnectionError as e:
+            raise HTTPBadGateway(text="upstream connection error") from e
         except (asyncio.CancelledError, CancelledError):
             raise
         except Exception:
@@ -464,7 +451,7 @@ class GitCDN:
 
     def stats(self, response: Union[Exception, web.Response] = None):
         response_stats = {}
-        if isinstance(response, web.Response):
+        if isinstance(response, (web.Response, web.StreamResponse)):
             output_size = 0
             if hasattr(response, "_payload_writer"):
                 output_size = getattr(response._payload_writer, "output_size", 0)
