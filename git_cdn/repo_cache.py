@@ -182,7 +182,7 @@ class RepoCache:
             raise
         finally:
             await ensure_proc_terminated(proc, "git cat-file", GIT_PROCESS_WAIT_TIMEOUT)
-            log.debug("cat-file done", pid=proc.pid, cmd_stderr=stderr[:128])
+            log.debug("cat-file done", pid=proc.pid)
         return stdout
 
     async def update(self):
