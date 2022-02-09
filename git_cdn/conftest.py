@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 # Standard Library
+import asyncio
 import os
 
 # Third Party Libraries
 import aiohttp
 import pytest
+import uvloop
 import yarl
 
 import git_cdn.util
@@ -25,6 +27,18 @@ def tmpworkdir(tmpdir):
 @pytest.fixture
 def app(tmpworkdir):
     yield git_cdn_app.make_app(GITSERVER_UPSTREAM)
+
+
+@pytest.fixture(scope="module", params=[asyncio, uvloop])
+def cdn_event_loop(request):
+    if request.param is asyncio:
+        loop = asyncio.new_event_loop()
+    elif request.param is uvloop:
+        loop = uvloop.new_event_loop()
+
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
 
 
 class FakeClient:

@@ -7,8 +7,8 @@ from git_cdn.conftest import CREDS
 from git_cdn.conftest import MANIFEST_PATH
 
 
-async def test_proxy_connection_issue(make_client, event_loop, app, mocker):
-    assert event_loop
+async def test_proxy_connection_issue(make_client, cdn_event_loop, app, mocker):
+    assert cdn_event_loop
     client = await make_client(app)
     session = client.app.gitcdn.get_session()
     old_request = session.request
@@ -33,8 +33,8 @@ async def test_proxy_connection_issue(make_client, event_loop, app, mocker):
     assert called
 
 
-async def test_proxy_answer_issue(make_client, event_loop, app, mocker):
-    assert event_loop
+async def test_proxy_answer_issue(make_client, cdn_event_loop, app, mocker):
+    assert cdn_event_loop
     client = await make_client(app)
     session = client.app.gitcdn.get_session()
     old_request = session.request

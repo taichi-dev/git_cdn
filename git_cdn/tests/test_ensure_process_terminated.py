@@ -31,14 +31,17 @@ SHELLCODE3 = textwrap.dedent(
 )
 
 
-async def test_basic(tmpdir, event_loop):
+async def test_basic(tmpdir, cdn_event_loop):
     proc = await asyncio.create_subprocess_exec(
-        "bash", "-c", SHELLCODE1, stdout=asyncio.subprocess.PIPE
+        "bash",
+        "-c",
+        SHELLCODE1,
+        stdout=asyncio.subprocess.PIPE,
     )
     await git_cdn.util.ensure_proc_terminated(proc, "bash", 0.2)
 
 
-async def test_term(tmpdir, event_loop):
+async def test_term(tmpdir, cdn_event_loop):
     start_time = time()
     proc = await asyncio.create_subprocess_exec(
         "bash", "-c", SHELLCODE2, stdout=asyncio.subprocess.PIPE
@@ -48,7 +51,7 @@ async def test_term(tmpdir, event_loop):
     assert elapsed < 2
 
 
-async def test_kill(tmpdir, event_loop):
+async def test_kill(tmpdir, cdn_event_loop):
     start_time = time()
     proc = await asyncio.create_subprocess_exec(
         "bash", "-c", SHELLCODE3, stdout=asyncio.subprocess.PIPE
