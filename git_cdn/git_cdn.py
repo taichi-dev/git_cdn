@@ -222,7 +222,13 @@ class GitCDN:
         method = request.method.lower()
         git_path = find_gitpath(path)
         clear_contextvars()
-        bind_contextvars(ctx={"uuid": str(uuid.uuid4()), "path": str(git_path), "eventloop": object_module_name(asyncio.get_running_loop())})
+        bind_contextvars(
+            ctx={
+                "uuid": str(uuid.uuid4()),
+                "path": str(git_path),
+                "eventloop": object_module_name(asyncio.get_running_loop()),
+            }
+        )
 
         extract_headers_to_context(request.headers)
         h = dict(request.headers)
