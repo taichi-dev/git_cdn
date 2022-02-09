@@ -341,14 +341,6 @@ class GitCDN:
                     resp_error = (await response.content.read()).decode(
                         errors="replace"
                     )
-                if response.status == 500:
-                    log.error(
-                        "request leading to err 500",
-                        request_content=data,
-                        # only dump the first value in multidict
-                        request_headers=dict(request.headers),
-                    )
-
                 log.debug(
                     "upstream returned",
                     upstream_url=upstream_url,
