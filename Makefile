@@ -3,7 +3,7 @@
 MODULE:=git_cdn
 PIP:=/usr/bin/env python3 -m pip
 POETRY:=/usr/bin/env python3 -m poetry
-PIP_VERSION:="==22.0.2"
+PIP_VERSION:="==22.0.3"
 POETRY_VERSION:="==1.1.12"
 
 # poetry enforce semver PEP 440 https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
