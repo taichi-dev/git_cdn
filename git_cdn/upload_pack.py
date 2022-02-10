@@ -136,12 +136,12 @@ class UploadPackHandler:
             # In case 2 threads race for write lock, check again if it has been added in the cache
             if not self.pcache.exists():
                 await self.execute(parsed_input)
-                # ensure cache size doesn't grow in a background task
-                cache_cleaner.clean()
 
         async with self.pcache.read_lock():
             if self.pcache.exists():
                 await self.pcache.send_pack(self.writer)
+                # ensure cache size doesn't grow in a background task
+                cache_cleaner.clean()
                 return
         # if we are here because of upload_pack failure,
         # the client see the error via the git protocol (mainly "not our ref" error)
