@@ -7,6 +7,7 @@ from concurrent.futures import CancelledError
 from aiohttp.abc import AbstractStreamWriter
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
+from structlog.contextvars import get_contextvars
 
 from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.pack_cache import PackCache
@@ -105,6 +106,10 @@ class UploadPackHandler:
             # or 2s if not caching, as the process is useless now
             timeout = 10 * 60 if self.pcache else GIT_PROCESS_WAIT_TIMEOUT
             await ensure_proc_terminated(proc, "git upload-pack", timeout)
+            if proc.returncode != 0:
+                bind_contextvars(
+                    upload_pack_status="error", reason=await proc.stderr.read()
+                )
             log.debug("Upload pack done", pid=proc.pid)
 
     async def write_pack_error(self, error: str):
@@ -138,8 +143,14 @@ class UploadPackHandler:
             if self.pcache.exists():
                 await self.pcache.send_pack(self.writer)
                 return
-        # In case of error, the error is already forwarded to client in doUploadPack().
-        log.warning("Run with cache failed")
+        # if we are here because of upload_pack failure,
+        # the client see the error via the git protocol (mainly "not our ref" error)
+        # and "Response stats" report the error via context upload_pack_status="error"
+        if get_contextvars()["upload_pack_status"] != "error":
+            # Should not happen
+            # This case may be due to pack cache deletion before serving it:
+            # look logs with with the corresponding hash
+            raise RuntimeError("Run with cache failed")
 
     async def run(self, parsed_input):
         """Run the whole process of upload pack, including sending the result to the writer"""
