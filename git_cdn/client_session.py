@@ -64,7 +64,7 @@ class ClientSessionWithRetry:
                     request_url=self.url,
                     request_method=self.method,
                 )
-                await asyncio.sleep(timeout)
+            await asyncio.sleep(timeout)
         return self.cm_request
 
     async def __aexit__(self, *args, **kwargs):
