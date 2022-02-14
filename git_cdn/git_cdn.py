@@ -40,6 +40,8 @@ from git_cdn.util import object_module_name
 log = getLogger()
 parallel_request = 0
 PROTOCOL_VERSION_RE = re.compile(r"^version=(\d+)$")
+RUNNING_LOOP = ""
+WORKER_PID = os.getpid()
 
 
 def fix_response_headers(headers):
@@ -142,6 +144,8 @@ class GitCDN:
         async def on_startup(_):
             self.get_session()
             self.lfs_manager = LFSCacheManager(upstream, None, self.proxysession)
+            global RUNNING_LOOP
+            RUNNING_LOOP = object_module_name(asyncio.get_running_loop())
 
         async def on_shutdown(_):
             if self.proxysession is not None:
@@ -224,7 +228,8 @@ class GitCDN:
             ctx={
                 "uuid": str(uuid.uuid4()),
                 "path": str(git_path),
-                "eventloop": object_module_name(asyncio.get_running_loop()),
+                "eventloop": RUNNING_LOOP,
+                "pid": WORKER_PID,
             }
         )
 
