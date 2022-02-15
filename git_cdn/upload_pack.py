@@ -108,7 +108,9 @@ class UploadPackHandler:
             await ensure_proc_terminated(proc, "git upload-pack", timeout)
             if proc.returncode != 0:
                 bind_contextvars(
-                    upload_pack_status="error", reason=await proc.stderr.read()
+                    upload_pack_status="error",
+                    returncode=proc.returncode,
+                    reason=await proc.stderr.read(),
                 )
             log.debug("Upload pack done", pid=proc.pid)
 
