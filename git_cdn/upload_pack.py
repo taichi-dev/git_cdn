@@ -179,11 +179,9 @@ class UploadPackHandler:
                     await self.doUploadPack(parsed_input)
                 else:
                     start_wait = time()
-                    try:
-                        async with self.sema:
-                            await self.doUploadPack(parsed_input)
-                    finally:
+                    async with self.sema:
                         bind_contextvars(sema_wait=time() - start_wait)
+                        await self.doUploadPack(parsed_input)
 
     async def missing_want(self, wants):
         """Return True if at least one sha1 in 'wants' is missing in self.rcache"""
