@@ -2,6 +2,7 @@
 import asyncio
 import os
 from concurrent.futures import CancelledError
+from time import time
 
 # Third Party Libraries
 from aiohttp.abc import AbstractStreamWriter
@@ -9,7 +10,6 @@ from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 from structlog.contextvars import get_contextvars
 
-from git_cdn.aiosemaphore import AioSemaphore
 from git_cdn.pack_cache import PackCache
 from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.packet_line import to_packet
@@ -178,8 +178,12 @@ class UploadPackHandler:
                 if not self.sema:
                     await self.doUploadPack(parsed_input)
                 else:
-                    async with AioSemaphore(self.sema):
-                        await self.doUploadPack(parsed_input)
+                    start_wait = time()
+                    try:
+                        async with self.sema:
+                            await self.doUploadPack(parsed_input)
+                    finally:
+                        bind_contextvars(sema_wait=time() - start_wait)
 
     async def missing_want(self, wants):
         """Return True if at least one sha1 in 'wants' is missing in self.rcache"""

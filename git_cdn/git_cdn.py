@@ -7,6 +7,7 @@ import time
 import traceback
 import uuid
 from concurrent.futures import CancelledError
+from multiprocessing import cpu_count
 from typing import Union
 
 import aiohttp
@@ -118,6 +119,12 @@ def hide_auth_on_headers(h):
 
 class GitCDN:
     MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "10"))
+    MAX_SEMAPHORE = int(
+        os.getenv(
+            "MAX_GIT_UPLOAD_PACK",
+            max(1, int(cpu_count() / int(os.getenv("GUNICORN_WORKER", "8")))),
+        )
+    )
 
     def __init__(self, upstream, app, router):
         log_server = os.getenv("LOGGING_SERVER")
@@ -136,7 +143,7 @@ class GitCDN:
         self.router.add_resource("/{path:.+}").add_route("*", self.routing_handler)
         self.proxysession = None
         self.lfs_manager = None
-        self.sema = None
+        self.sema = asyncio.BoundedSemaphore(value=GitCDN.MAX_SEMAPHORE)
         # for tests
         self.app.served_lfs_objects = 0
 
@@ -446,7 +453,7 @@ class GitCDN:
     def get_sema_count(self):
         if self.sema is not None:
             try:
-                return self.sema.get_value()
+                return self.sema._value
             except NotImplementedError:
                 return 0
         return 0
