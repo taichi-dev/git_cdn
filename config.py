@@ -2,8 +2,6 @@
 # Standard Library
 import logging
 import os
-from multiprocessing import BoundedSemaphore
-from multiprocessing import cpu_count
 
 workers = int(os.getenv("GUNICORN_WORKER", "8"))
 # set a big timeout to avoid worker being killed, and leaking semaphore
@@ -23,18 +21,9 @@ loglevel = "debug"
 accesslog = "/dev/null"
 access_log_format = '%a "%r" %s %b "%{User-Agent}i" "%{X-FORWARDED-FOR}i" "%{X-CI-JOB-URL}i" "%{X-CI-PROJECT-PATH}i" "%{X-REPO-JOB-URL}i" %D'
 
-
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 # Upload pack Limit with Semaphores
-max_semaphore = int(os.getenv("MAX_GIT_UPLOAD_PACK", cpu_count()))
-upack_sema = BoundedSemaphore(max_semaphore)
-
-
-def post_worker_init(worker):
-    # Add shared semaphore to gitcdn app
-    worker.app.callable.gitcdn.sema = upack_sema
-
 
 # Add logs when workers are killed
 def worker_int(worker):

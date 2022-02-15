@@ -34,7 +34,8 @@ class LFSCacheFile:
         return lock(self.filename, mode=fcntl.LOCK_EX)
 
     def delete(self):
-        os.unlink(self.filename)
+        if os.path.exists(self.filename):
+            os.unlink(self.filename)
 
     def exists(self):
         return os.path.exists(self.filename) and os.stat(self.filename).st_size > 0
