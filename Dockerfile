@@ -22,5 +22,5 @@ ADD config.py /app/
 # starts gunicorn
 ENTRYPOINT ["gunicorn", "git_cdn.app:app", "-c", "config.py"]
 # CMD holds the optional arguments (change at will)
-CMD ["--workers", "8", "--bind", ":8000"]
+CMD ["--bind", ":8000"]
 EXPOSE 8000
