@@ -120,9 +120,12 @@ def hide_auth_on_headers(h):
 class GitCDN:
     MAX_CONNECTIONS = int(os.getenv("MAX_CONNECTIONS", "10"))
     MAX_SEMAPHORE = int(
-        os.getenv(
-            "MAX_GIT_UPLOAD_PACK",
-            max(1, int(cpu_count() / int(os.getenv("GUNICORN_WORKER", "8")))),
+        max(
+            1,
+            int(
+                os.getenv("MAX_GIT_UPLOAD_PACK", cpu_count()),
+            )
+            / int(os.getenv("GUNICORN_WORKER", "8")),
         )
     )
 
