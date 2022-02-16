@@ -3,7 +3,9 @@
 import logging
 import os
 
-workers = int(os.getenv("GUNICORN_WORKER", "8"))
+from git_cdn.git_cdn import GUNICORN_WORKER_NB
+
+workers = GUNICORN_WORKER_NB
 # set a big timeout to avoid worker being killed, and leaking semaphore
 timeout = 3600
 # gitCDN requests take can be very long, so try to finish them before killing.

@@ -93,12 +93,10 @@ push: githook
 
 run: git-config
 	. ./tosource && \
-	GUNICORN_WORKER=1 \
 	$(POETRY) run gunicorn -c config.py git_cdn.app:app -b :8000
 
 run-uvloop: git-config
 	. ./tosource && \
-	GUNICORN_WORKER=1 \
 	GUNICORN_WORKER_CLASS=aiohttp.worker.GunicornUVLoopWebWorker \
 	$(POETRY) run gunicorn -c config.py git_cdn.app:app -b :8000
 

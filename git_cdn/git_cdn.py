@@ -43,6 +43,7 @@ parallel_request = 0
 PROTOCOL_VERSION_RE = re.compile(r"^version=(\d+)$")
 RUNNING_LOOP = ""
 WORKER_PID = os.getpid()
+GUNICORN_WORKER_NB = int(os.getenv("GUNICORN_WORKER", "8"))
 
 
 def fix_response_headers(headers):
@@ -125,7 +126,7 @@ class GitCDN:
             int(
                 os.getenv("MAX_GIT_UPLOAD_PACK", cpu_count()),
             )
-            / int(os.getenv("GUNICORN_WORKER", "8")),
+            / GUNICORN_WORKER_NB,
         )
     )
 
