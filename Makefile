@@ -93,12 +93,14 @@ push: githook
 
 run: git-config
 	. ./tosource && \
-	$(POETRY) run gunicorn -c config.py git_cdn.app:app --workers=4 -b :8000
+	GUNICORN_WORKER=1 \
+	$(POETRY) run gunicorn -c config.py git_cdn.app:app -b :8000
 
 run-uvloop: git-config
 	. ./tosource && \
+	GUNICORN_WORKER=1 \
 	GUNICORN_WORKER_CLASS=aiohttp.worker.GunicornUVLoopWebWorker \
-	$(POETRY) run gunicorn -c config.py git_cdn.app:app --workers=4 -b :8000
+	$(POETRY) run gunicorn -c config.py git_cdn.app:app -b :8000
 
 # aliases to gracefully handle typos on poor dev's terminal
 check: checks
