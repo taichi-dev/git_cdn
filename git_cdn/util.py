@@ -132,7 +132,7 @@ def log_proc_if_error(proc, cmd):
 async def wait_proc(proc, cmd, timeout):
     try:
         if proc.returncode is None:
-            await asyncio.wait({proc.wait()}, timeout=timeout)
+            await asyncio.wait_for(proc.wait(), timeout=timeout)
 
         log_proc_if_error(proc, cmd)
         return True
