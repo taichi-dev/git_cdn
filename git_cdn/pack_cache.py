@@ -77,6 +77,8 @@ class PackCache:
                     }
                 )
                 if not data:
+                    if self.size() != count:
+                        log.error("exiting on unfinished pack cache read")
                     break
                 try:
                     await writer.write(data)
