@@ -375,7 +375,6 @@ async def test_push(
 @pytest.mark.parametrize("protocol_version", [1, 2])
 async def test_parallel(
     make_client,
-    cdn_event_loop,
     tmpdir,
     num_times,
     protocol_version,

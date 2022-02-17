@@ -1,6 +1,6 @@
 .PHONY: build
 
-MODULE:=git_cdn
+MODULE:=git_cdn config.py
 PIP:=/usr/bin/env python3 -m pip
 POETRY:=/usr/bin/env python3 -m poetry
 PIP_VERSION:="==22.0.3"
