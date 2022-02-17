@@ -109,7 +109,7 @@ class UploadPackHandler:
             if proc.returncode != 0:
                 bind_contextvars(
                     upload_pack_status="error",
-                    returncode=proc.returncode,
+                    upload_pack_returncode=proc.returncode,
                     reason=await proc.stderr.read(),
                 )
             log.debug("Upload pack done", pid=proc.pid)
