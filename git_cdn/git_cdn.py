@@ -42,7 +42,7 @@ log = getLogger()
 parallel_request = 0
 PROTOCOL_VERSION_RE = re.compile(r"^version=(\d+)$")
 RUNNING_LOOP = ""
-WORKER_PID = os.getpid()
+WORKER_PID = -1
 GUNICORN_WORKER_NB = int(os.getenv("GUNICORN_WORKER", "8"))
 
 
@@ -157,6 +157,8 @@ class GitCDN:
             self.lfs_manager = LFSCacheManager(upstream, None, self.proxysession)
             global RUNNING_LOOP
             RUNNING_LOOP = object_module_name(asyncio.get_running_loop())
+            global WORKER_PID
+            WORKER_PID = os.getpid()
 
         async def on_shutdown(_):
             if self.proxysession is not None:

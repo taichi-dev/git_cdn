@@ -109,7 +109,7 @@ class UploadPackHandler:
             if proc.returncode != 0:
                 bind_contextvars(
                     upload_pack_status="error",
-                    returncode=proc.returncode,
+                    upload_pack_returncode=proc.returncode,
                     reason=await proc.stderr.read(),
                 )
             log.debug("Upload pack done", pid=proc.pid)
@@ -180,8 +180,12 @@ class UploadPackHandler:
                 else:
                     start_wait = time()
                     async with self.sema:
-                        bind_contextvars(sema_wait=time() - start_wait)
+                        start_upload_pack = time()
+                        bind_contextvars(sema_wait=start_upload_pack - start_wait)
                         await self.doUploadPack(parsed_input)
+                        bind_contextvars(
+                            upload_pack_duration=time() - start_upload_pack
+                        )
 
     async def missing_want(self, wants):
         """Return True if at least one sha1 in 'wants' is missing in self.rcache"""

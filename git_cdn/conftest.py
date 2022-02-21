@@ -33,12 +33,20 @@ def app(tmpworkdir):
 def cdn_event_loop(request):
     if request.param is asyncio:
         loop = asyncio.new_event_loop()
+        # FastChildWatcher is failing our tests with following exception
+        # RuntimeError: asyncio.get_child_watcher() is not activated, subprocess support is not installed.
+        # Maybe because FastChildWatcher requires a running event loop in the main thread to work
+        asyncio.set_child_watcher(asyncio.ThreadedChildWatcher())
+
     elif request.param is uvloop:
         loop = uvloop.new_event_loop()
 
     asyncio.set_event_loop(loop)
+
     yield loop
-    loop.close()
+
+    if not loop.is_closed():
+        loop.close()
 
 
 class FakeClient:

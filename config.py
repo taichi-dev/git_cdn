@@ -1,5 +1,6 @@
 # Configuration
 # Standard Library
+import asyncio
 import logging
 import os
 
@@ -26,6 +27,11 @@ access_log_format = '%a "%r" %s %b "%{User-Agent}i" "%{X-FORWARDED-FOR}i" "%{X-C
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 # Upload pack Limit with Semaphores
+
+# The default child watcher return a log error:
+# "Unknown child process pid 32913, will report returncode 255"
+# when the child process is already finished, so using FastChildWatcher to ignore this issue
+asyncio.set_child_watcher(asyncio.FastChildWatcher())
 
 # Add logs when workers are killed
 def worker_int(worker):
