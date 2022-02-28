@@ -29,6 +29,9 @@ class ClientSessionWithRetry:
         self.cm_request = None
         for retries, timeout in enumerate(backoff(0.1, self.REQUEST_MAX_RETRIES)):
             try:
+                if self.session.closed:
+                    self.session = self.get_session()
+
                 self.cm_request = await self.session.request(
                     self.method, self.url, *self.args, **self.kwargs
                 )
@@ -70,3 +73,5 @@ class ClientSessionWithRetry:
     async def __aexit__(self, *args, **kwargs):
         if self.cm_request is not None:
             self.cm_request.close()
+        if self.session is not None and not self.session.close:
+            await self.session.close()
