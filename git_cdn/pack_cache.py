@@ -77,6 +77,7 @@ class PackCache:
                     }
                 )
                 if not data:
+                    bind_contextvars(complete_send_pack=(self.size() == count))
                     if self.size() != count:
                         log.error("exiting on unfinished pack cache read")
                     break
