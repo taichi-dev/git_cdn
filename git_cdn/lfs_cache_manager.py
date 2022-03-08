@@ -1,4 +1,3 @@
-# Standard Library
 import asyncio
 import fcntl
 import json
@@ -6,9 +5,10 @@ import os
 import time
 from urllib.parse import urlparse
 
-# Third Party Libraries
+from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
 from structlog import getLogger
+from structlog.contextvars import bind_contextvars
 
 from git_cdn.aiolock import lock
 from git_cdn.util import check_path
@@ -18,7 +18,12 @@ log = getLogger()
 
 
 class LFSCacheFile:
-    def __init__(self, href):
+    def __init__(self, href, headers):
+        self.href = href
+        self.headers = headers
+        self.accept_encoding = ""
+        if "Accept-Encoding" in headers:
+            self.accept_encoding = headers["Accept-Encoding"]
         path = urlparse(href).path.lstrip("/")
         check_path(path)
         self.workdir = get_subdir("lfs")
@@ -27,6 +32,10 @@ class LFSCacheFile:
             self.workdir, os.path.dirname(path), self.hash[:2], self.hash
         )
 
+    @property
+    def gzip(self):
+        return f"{self.filename}.gzip"
+
     def read_lock(self):
         return lock(self.filename, mode=fcntl.LOCK_SH)
 
@@ -34,14 +43,54 @@ class LFSCacheFile:
         return lock(self.filename, mode=fcntl.LOCK_EX)
 
     def delete(self):
+        if os.path.exists(self.gzip):
+            os.unlink(self.gzip)
         if os.path.exists(self.filename):
             os.unlink(self.filename)
 
-    def exists(self):
+    def gzip_exists(self):
+        return os.path.exists(self.gzip) and os.stat(self.gzip).st_size > 0
+
+    def raw_exists(self):
         return os.path.exists(self.filename) and os.stat(self.filename).st_size > 0
+
+    def exists(self):
+        return (
+            "gzip" in self.accept_encoding and self.gzip_in_cache() or self.raw_exists()
+        )
 
     def utime(self):
         os.utime(self.filename, None)
+
+    def gzip_utime(self):
+        os.utime(self.gzip, None)
+
+    async def gunzip(self):
+        # We do not want to compute the gunzip using python stlib
+        # - file may be huge, native gunzip will have better perf
+        # - avoid python memory allocations and GC operations
+        p = await asyncio.create_subprocess_exec(
+            "gunzip",
+            "-f",
+            "-k",
+            "-S",
+            ".gzip",
+            self.gzip,
+            stderr=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+        )
+        cmd_stdout, cmd_stderr = await p.communicate()
+        r = p.returncode
+        if r:
+            log.error(
+                "gunzip failed",
+                lfs_filename=self.filename,
+                cmd_stderr=cmd_stderr.decode(),
+                cmd_stdout=cmd_stdout.decode(),
+                lfs_gzip=self.gzip,
+                pid=p.pid,
+            )
+        return r
 
     async def checksum(self):
         # We do not want to compute the sha using python stlib
@@ -66,13 +115,65 @@ class LFSCacheFile:
             )
         return cs == self.hash
 
-    async def is_in_cache(self):
-        if self.exists():
-            if await self.checksum():
-                self.utime()
-                log.info("LFS cache hit", lfs_hit=True)
-                return True
+    def gzip_in_cache(self):
+        if self.gzip_exists():
+            self.gzip_utime()
+            bind_contextvars(lfs_hit=True)
+            return True
         return False
+
+    def raw_in_cache(self):
+        if self.raw_exists():
+            self.utime()
+            bind_contextvars(lfs_hit=True)
+            return True
+        return False
+
+    def response(self):
+        if "gzip" in self.accept_encoding and self.gzip_in_cache():
+            bind_contextvars(lfs_served="gzip")
+            return web.Response(
+                body=open(self.gzip, "rb"), headers={"Content-Encoding": "gzip"}
+            )
+        if self.raw_in_cache():
+            bind_contextvars(lfs_served="raw")
+            return web.Response(body=open(self.filename, "rb"))
+
+    async def download(self, session, ctx):
+        t1 = time.time()
+        async with session.get(self.href, headers=self.headers) as request:
+            if "Content-Length" in request.headers:
+                ctx["lfs_content_length"] = request.headers["Content-Length"]
+            if request.status != 200:
+                raise HTTPNotFound(body=await request.content.read())
+
+            ext = ""
+            if (
+                "Content-Encoding" in request.headers
+                and "gzip" in request.headers["Content-Encoding"]
+            ):
+                ctx["lfs_content_encoding"] = "gzip"
+                ext = ".gzip"
+
+            with open(self.filename + ext, "wb") as f:
+                try:
+                    while chunk := await request.content.readany():
+                        f.write(chunk)
+
+                except Exception:
+                    # don't need to raise, if the file is not present, we will try again
+                    log.exception("Aborting lfs download", **ctx)
+                    self.delete()
+                    return
+
+            t2 = time.time()
+            ctx["lfs_download_duration"] = t2 - t1
+            if ext == ".gzip":
+                await self.gunzip()
+                ctx["lfs_uncompress_duration"] = time.time() - t2
+
+            if not await self.checksum():
+                self.delete()
 
 
 class LFSCacheManager:
@@ -116,33 +217,6 @@ class LFSCacheManager:
 
         return json.dumps(js).encode()
 
-    async def download_object(self, cache_file, href, headers):
-        t1 = time.time()
-        async with self.session.get(href, headers=headers) as request:
-            ctx = {"lfs_href": href}
-            if "Content-Length" in request.headers:
-                ctx["lfs_content_length"] = request.headers["Content-Length"]
-            if request.status != 200:
-                raise HTTPNotFound(body=await request.content.read())
-
-            with open(cache_file.filename, "wb") as f:
-                try:
-                    while chunk := await request.content.readany():
-                        f.write(chunk)
-
-                except Exception:
-                    # don't need to raise, if the file is not present, we will try again
-                    log.exception("Aborting lfs download", **ctx)
-                    cache_file.delete()
-                    return
-
-            if await cache_file.checksum():
-                log.info(
-                    "downloaded LFS", lfs_download_duration=time.time() - t1, **ctx
-                )
-            else:
-                cache_file.delete()
-
     async def get_from_cache(self, href, headers):
         """@returns: filename where to find the file
         raises: HTTPNotFound in case of impossibility to download the file
@@ -150,18 +224,21 @@ class LFSCacheManager:
         if self.base_url is not None and href.startswith(self.base_url):
             href = href.replace(self.base_url, self.upstream_url)
 
-        cache_file = LFSCacheFile(href)
+        cache_file = LFSCacheFile(href, headers)
+        self.ctx = {"lfs_href": href, "lfs_content_encoding": "none"}
 
         async with cache_file.read_lock():
-            if await cache_file.is_in_cache():
-                return cache_file.filename
+            r = cache_file.response()
+            if r is not None:
+                return r
 
         async with cache_file.write_lock():
-            if await cache_file.is_in_cache():
-                return cache_file.filename
-            log.info("LFS cache miss", lfs_hit=False)
-            await asyncio.shield(self.download_object(cache_file, href, headers))
+            r = cache_file.response()
+            if r is not None:
+                return r
+            await asyncio.shield(cache_file.download(self.session, self.ctx))
+            bind_contextvars(lfs_hit=False, **self.ctx)
 
             if not cache_file.exists():
                 raise HTTPNotFound(body="failed to get LFS file")
-            return cache_file.filename
+            return cache_file.response()

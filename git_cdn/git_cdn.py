@@ -294,10 +294,10 @@ class GitCDN:
             self.lfs_manager.set_base_url(str(request.url.origin()) + "/")
             h = request.headers.copy()
             del h["Host"]
-            fn = await self.lfs_manager.get_from_cache(str(request.url), headers=h)
-            if os.path.exists(fn):
+            resp = await self.lfs_manager.get_from_cache(str(request.url), headers=h)
+            if resp is not None:
                 self.app.served_lfs_objects += 1
-                return web.Response(body=open(fn, "rb"))
+            return resp
 
         bind_contextvars(handler="redirect")
         return await self.proxify(request)
