@@ -310,8 +310,11 @@ class GitCDN:
             parallel_request += 1
             response = await self._routing_handler(request)
             return response
-        except (asyncio.CancelledError, CancelledError):
+        except asyncio.CancelledError:
             bind_contextvars(canceled=True)
+            raise
+        except CancelledError:
+            bind_contextvars(task_canceled=True)
             raise
         except ConnectionResetError as e:
             bind_contextvars(conn_reset=True)
