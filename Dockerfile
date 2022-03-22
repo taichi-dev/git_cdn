@@ -4,7 +4,7 @@ WORKDIR     /app
 
 # Only install dependencies
 RUN  apk --no-cache add make git libstdc++ && \
-    apk add --update --no-cache libffi curl openssl
+    apk add --update --no-cache libffi curl openssl gzip
 
 ADD dist/git_cdn-*.whl requirements.txt /app/
 RUN apk add --update --no-cache --virtual .build-deps alpine-sdk musl-dev libffi-dev openssl-dev &&\
