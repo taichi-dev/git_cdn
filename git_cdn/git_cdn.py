@@ -139,6 +139,7 @@ class GitCDN:
             enable_console_logs(context=os.getenv("LOGGING_CONTEXT"))
 
         logging.getLogger("gunicorn.access").propagate = True
+        logging.getLogger("gunicorn.error").propagate = True
         app.gitcdn = self
         self.app = app
         self.router = router

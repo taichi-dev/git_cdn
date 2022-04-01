@@ -11,6 +11,8 @@ workers = GUNICORN_WORKER_NB
 timeout = 3600
 # gitCDN requests take can be very long, so try to finish them before killing.
 graceful_timeout = 60 * 5
+# Tentative to avoid connection reset
+keepalive = int(os.getenv("GUNICORN_KEEPALIVE", 2))
 
 # you can try different worker class
 # - aiohttp.worker.GunicornWebWorker (default)
