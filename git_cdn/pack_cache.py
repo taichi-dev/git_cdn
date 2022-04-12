@@ -12,6 +12,7 @@ from structlog.contextvars import bind_contextvars
 # Third Party Libraries
 from git_cdn.aiolock import lock
 from git_cdn.packet_line import PacketLineChunkParser
+from git_cdn.util import FileLock
 from git_cdn.util import get_subdir
 
 log = getLogger()
@@ -113,32 +114,6 @@ class PackCache:
                     pass
 
 
-class FileLock:
-    def __init__(self, filename):
-        self.filename = filename
-        self._f = None
-
-    def exists(self):
-        return os.path.exists(self.filename)
-
-    def mtime(self):
-        return os.stat(self.filename).st_mtime
-
-    def __enter__(self):
-        self._f = open(self.filename, "a+")
-        fcntl.flock(self._f.fileno(), fcntl.LOCK_EX)
-        os.utime(self.filename, None)
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        fcntl.flock(self._f.fileno(), fcntl.LOCK_UN)
-        self._f.close()
-        self._f = None
-
-    def delete(self):
-        os.unlink(self.filename)
-
-
 class PackCacheCleaner:
     def __init__(self):
         self.cache_dir = get_subdir("pack_cache")
@@ -196,7 +171,7 @@ class PackCacheCleaner:
 
     def clean(self):
         # only clean once per minute
-        if self.lock.exists() and time() - self.lock.mtime() < 60:
+        if self.lock.exists and time() - self.lock.mtime < 60:
             log.debug("No need to cleanup")
             return
         # This is a background task, so do not await it

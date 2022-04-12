@@ -1,11 +1,18 @@
 import asyncio.subprocess
 import datetime
 import os
+import subprocess
+import threading
+import time
 
 import pytest
 
+from git_cdn.cache_handler.clean_cache import Cache
+from git_cdn.cache_handler.clean_cache import clean_cdn_cache
+from git_cdn.cache_handler.clean_cache import scan_cache
 from git_cdn.cache_handler.common import find_git_repo
 from git_cdn.conftest import GITLAB_REPO_TEST_GROUP
+from git_cdn.util import FileLock
 
 repolist = [
     (f"{GITLAB_REPO_TEST_GROUP}/test_git_cdn.git", "master"),
@@ -70,3 +77,47 @@ async def test_find_git_repo(repocache):
         in list_gits
     )
     assert len(list_gits) == 2
+
+
+@pytest.fixture
+def anotherrepocache(tmpdir, header_for_git):
+    gitcdn = tmpdir / "gitcdn"
+    gitcdn.mkdir()
+    gitrepo = gitcdn / "git"
+    gitrepo.mkdir()
+    gitrepo.chdir()
+    for repo, branch in repolist:
+        reponame = os.path.basename(repo)[:-4]
+        url = f"{os.getenv('GITSERVER_UPSTREAM') or os.getenv('CI_SERVER_URL')}/{repo}"
+        proc = subprocess.check_call(
+            ["git", *header_for_git, "clone", url, "-b", branch]
+        )
+        with FileLock(gitrepo / reponame / ".git.lock"):
+            time.sleep(0.5)
+        assert proc == 0
+    time.sleep(1)
+    yield gitcdn
+
+
+def test_clean_repocache(mocker, anotherrepocache):
+    mocker.patch(
+        "git_cdn.cache_handler.clean_cache.must_clean", return_value=[True, True, False]
+    )
+    anotherrepocache.chdir()
+
+    lockfilename = FileLock(anotherrepocache / "git" / "test_git_cdn" / ".git.lock")
+    lockfilename.lock()
+
+    caches = scan_cache(True, False, False)
+
+    t1 = threading.Thread(
+        target=clean_cdn_cache,
+        kwargs={"caches": caches, "threshold": 0.1, "delete": True},
+    )
+    t1.start()
+    time.sleep(0.5)
+
+    lockfilename.release()
+    assert lockfilename.exists
+    t1.join()
+    assert not lockfilename.exists
