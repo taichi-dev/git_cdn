@@ -140,6 +140,9 @@ class GitCDN:
 
         logging.getLogger("gunicorn.access").propagate = True
         logging.getLogger("gunicorn.error").propagate = True
+        logging.getLogger("asyncio").propagate = True
+        logging.getLogger("aiohttp.server").propagate = True
+
         app.gitcdn = self
         self.app = app
         self.router = router
@@ -325,7 +328,7 @@ class GitCDN:
             bind_contextvars(exception_reason=e.reason)
             response = e
             raise
-        except Exception as e:
+        except BaseException as e:
             bind_contextvars(exception_type=object_module_name(e), exception_str=str(e))
             response = e
             raise
@@ -480,7 +483,7 @@ class GitCDN:
                 response_size=output_size,
                 response_status=getattr(response, "status", 500),
             )
-        if isinstance(response, Exception):
+        if isinstance(response, BaseException):
             e = response
             response_stats["exception"] = "".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
