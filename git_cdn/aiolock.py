@@ -58,6 +58,13 @@ class Lock:
         return None
 
     async def __aexit__(self, exc_type, exc, tb):
+        if exc is not None:
+            import traceback
+
+            log.error(
+                "Error occurs while locking",
+                exception="".join(traceback.format_exception(exc_type, exc, tb)),
+            )
         self.release()
 
 
