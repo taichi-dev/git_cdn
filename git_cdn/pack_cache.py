@@ -66,26 +66,32 @@ class PackCache:
         log.debug("Serving from pack cache", hash=self.hash, pack_hit=self.hit)
         with open(self.filename, "rb") as f:
             count = 0
-            while True:
-                data = f.read(CHUNK_SIZE)
-                count += len(data)
+            try:
+                while True:
+                    data = f.read(CHUNK_SIZE)
+                    count += len(data)
 
-                bind_contextvars(
-                    upload_pack_progress={
-                        "date": datetime.now().isoformat(),
-                        "sent": count,
-                    }
-                )
-                if not data:
-                    bind_contextvars(complete_send_pack=(self.size() == count))
-                    if self.size() != count:
-                        log.error("exiting on unfinished pack cache read")
-                    break
-                try:
-                    await writer.write(data)
-                except ConnectionResetError:
-                    log.warning("connection reset while serving pack cache")
-                    break
+                    bind_contextvars(
+                        upload_pack_progress={
+                            "date": datetime.now().isoformat(),
+                            "sent": count,
+                        }
+                    )
+                    if not data:
+                        break
+                    try:
+                        await writer.write(data)
+                    except ConnectionResetError:
+                        log.warning("connection reset while serving pack cache")
+                        break
+            except BaseException:
+                log.exception("Unexpected exception while sending the pack")
+                raise
+            finally:
+                bind_contextvars(complete_send_pack=(self.size() == count))
+                if self.size() != count:
+                    log.error("exiting on unfinished pack cache read")
+
         # update mtime for LRU
         os.utime(self.filename, None)
 
