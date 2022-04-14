@@ -1,6 +1,7 @@
 import hashlib
 
 import pytest
+import pytest_asyncio
 from aiohttp import web
 
 import git_cdn.util
@@ -15,7 +16,7 @@ async def previous(request):
     return web.Response(body="value: {}".format(request.app["value"]).encode("utf-8"))
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def cli(event_loop, aiohttp_client):
     app = web.Application()
     app.router.add_get("/", previous)
@@ -23,6 +24,7 @@ def cli(event_loop, aiohttp_client):
     return event_loop.run_until_complete(aiohttp_client(app))
 
 
+@pytest.mark.asyncio
 async def test_set_value(cli):
     resp = await cli.post("/", data={"value": "foo"})
     assert resp.status == 200
@@ -45,13 +47,13 @@ def check_md5_and_size(body, bundle_file, md5sum, size):
     assert h.digest() == md5sum
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def cbm(tmpworkdir):
     await close_bundle_session()
     yield CloneBundleManager("platform_external_javapoet.git")
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def client(event_loop, aiohttp_client, cbm):
     # build a small application, with just our handler
     app = web.Application(loop=event_loop)
@@ -59,6 +61,7 @@ def client(event_loop, aiohttp_client, cbm):
     return event_loop.run_until_complete(aiohttp_client(app, loop=event_loop))
 
 
+@pytest.mark.asyncio
 async def test_integration_basic(client, cbm):
     # this project has the smallest bundle size (1M)
     bundle_file = (

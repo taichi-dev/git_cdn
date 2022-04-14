@@ -59,4 +59,4 @@ build-backend = "poetry.masonry.api"
 clean-gitcdn-cache = "git_cdn.cache_handler.clean_cache:main"
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
+asyncio_mode = "strict"

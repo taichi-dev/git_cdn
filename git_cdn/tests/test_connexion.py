@@ -14,6 +14,7 @@ from git_cdn.conftest import CREDS
 from git_cdn.conftest import MANIFEST_PATH
 
 
+@pytest.mark.asyncio
 async def test_proxy_retry_connection_issue(make_client, cdn_event_loop, app, mocker):
     assert cdn_event_loop
     client = await make_client(app)
@@ -40,6 +41,7 @@ async def test_proxy_retry_connection_issue(make_client, cdn_event_loop, app, mo
     assert called == 1
 
 
+@pytest.mark.asyncio
 async def test_proxy_retry_answer_issue(make_client, cdn_event_loop, app, mocker):
     assert cdn_event_loop
     client = await make_client(app)
@@ -72,6 +74,7 @@ async def test_proxy_retry_answer_issue(make_client, cdn_event_loop, app, mocker
     assert called == 2
 
 
+@pytest.mark.asyncio
 async def test_proxy_answer_issue(make_client, cdn_event_loop, app, mocker):
     assert cdn_event_loop
 
@@ -101,6 +104,7 @@ async def test_proxy_answer_issue(make_client, cdn_event_loop, app, mocker):
     assert called == ClientSessionWithRetry.REQUEST_MAX_RETRIES
 
 
+@pytest.mark.asyncio
 async def test_proxy_connection_issue(make_client, cdn_event_loop, app, mocker):
     assert cdn_event_loop
     client = await make_client(app)
@@ -136,6 +140,7 @@ async def test_proxy_connection_issue(make_client, cdn_event_loop, app, mocker):
         (Exception, 500),
     ],
 )
+@pytest.mark.asyncio
 async def test_exception(
     make_client, cdn_event_loop, app, mocker, monkeypatch, http_ex, http_code
 ):

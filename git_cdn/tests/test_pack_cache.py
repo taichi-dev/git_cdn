@@ -3,6 +3,8 @@ import asyncio
 import os
 from time import time
 
+import pytest
+
 # Third Party Libraries
 from git_cdn.pack_cache import PackCache
 from git_cdn.pack_cache import PackCacheCleaner
@@ -31,6 +33,7 @@ async def cache_pack(hash):
     return pc
 
 
+@pytest.mark.asyncio
 async def test_pack_cache_create(tmpworkdir, cdn_event_loop):
     pc = await cache_pack("1234")
     fakewrite = FakeStreamWriter()
@@ -38,6 +41,7 @@ async def test_pack_cache_create(tmpworkdir, cdn_event_loop):
     assert fakewrite.output == get_data("pack_cache.bin")
 
 
+@pytest.mark.asyncio
 async def test_pack_cache_clean(tmpworkdir, cdn_event_loop):
     # gitlab-ci filesystem has 1 second precision
     sleep = 0
@@ -65,6 +69,7 @@ async def test_pack_cache_clean(tmpworkdir, cdn_event_loop):
     assert pc3.exists()
 
 
+@pytest.mark.asyncio
 async def test_pack_cache_abort(tmpworkdir, cdn_event_loop):
     pc = PackCache("failed")
 
@@ -76,6 +81,7 @@ async def test_pack_cache_abort(tmpworkdir, cdn_event_loop):
     assert os.path.exists(pc.filename) is False
 
 
+@pytest.mark.asyncio
 async def test_corrupt(tmpworkdir):
     data = get_data("upload_pack_trunc.bin")
     pc = PackCache("fake")

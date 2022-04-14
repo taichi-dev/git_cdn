@@ -5,7 +5,7 @@ import os
 
 # Third Party Libraries
 import aiohttp
-import pytest
+import pytest_asyncio
 import uvloop
 import yarl
 
@@ -18,18 +18,18 @@ MANIFEST_PATH = f"{GITLAB_REPO_TEST_GROUP}/test_git_cdn.git"
 CREDS = os.getenv("CREDS", "gitlab-ci-token:{}".format(os.getenv("CI_JOB_TOKEN")))
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def tmpworkdir(tmpdir):
     git_cdn.util.WORKDIR = tmpdir / "gitCDN"
     yield tmpdir
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def app(tmpworkdir):
     yield git_cdn_app.make_app(GITSERVER_UPSTREAM)
 
 
-@pytest.fixture(scope="module", params=[asyncio, uvloop])
+@pytest_asyncio.fixture(scope="module", params=[asyncio, uvloop])
 def cdn_event_loop(request):
     if request.param is asyncio:
         loop = asyncio.new_event_loop()
@@ -85,12 +85,12 @@ class FakeClient:
                 return r
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def header_for_git(request):
     return ["-c", f"http.extraheader=X-CI-INTEG-TEST: {request.node.nodeid}"]
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def make_client(aiohttp_client):
     async def ret(app, creds=CREDS):
         if "UNDER_TEST_APP" not in os.environ:

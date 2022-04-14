@@ -3,6 +3,8 @@ import asyncio
 import textwrap
 from time import time
 
+import pytest
+
 # Third Party Libraries
 import git_cdn.util
 
@@ -31,6 +33,7 @@ SHELLCODE3 = textwrap.dedent(
 )
 
 
+@pytest.mark.asyncio
 async def test_basic(tmpdir, cdn_event_loop):
     proc = await asyncio.create_subprocess_exec(
         "bash",
@@ -41,6 +44,7 @@ async def test_basic(tmpdir, cdn_event_loop):
     await git_cdn.util.ensure_proc_terminated(proc, "bash", 0.2)
 
 
+@pytest.mark.asyncio
 async def test_term(tmpdir, cdn_event_loop):
     start_time = time()
     proc = await asyncio.create_subprocess_exec(
@@ -51,6 +55,7 @@ async def test_term(tmpdir, cdn_event_loop):
     assert elapsed < 2
 
 
+@pytest.mark.asyncio
 async def test_kill(tmpdir, cdn_event_loop):
     start_time = time()
     proc = await asyncio.create_subprocess_exec(

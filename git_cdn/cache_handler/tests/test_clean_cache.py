@@ -6,6 +6,7 @@ import threading
 import time
 
 import pytest
+import pytest_asyncio
 
 from git_cdn.cache_handler.clean_cache import Cache
 from git_cdn.cache_handler.clean_cache import clean_cdn_cache
@@ -20,7 +21,7 @@ repolist = [
 ]
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def repocache(make_client, cdn_event_loop, tmpdir, app, header_for_git):
     assert cdn_event_loop
 
@@ -44,7 +45,7 @@ async def repocache(make_client, cdn_event_loop, tmpdir, app, header_for_git):
     yield tmpdir / "gitCDN"
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def old_atime_repocache(repocache):
     git_cache = repocache / "git"
     now = datetime.datetime.utcnow()
@@ -56,7 +57,7 @@ async def old_atime_repocache(repocache):
     yield repocache
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def oldrepocache(repocache):
     git_cache = repocache / "git"
     now = datetime.datetime.utcnow()
@@ -68,6 +69,7 @@ async def oldrepocache(repocache):
     yield repocache
 
 
+@pytest.mark.asyncio
 async def test_find_git_repo(repocache):
     git_cache = repocache / "git"
     list_gits = [i.path for i in find_git_repo(git_cache)]
