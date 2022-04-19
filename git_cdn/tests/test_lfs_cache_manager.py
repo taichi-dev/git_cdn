@@ -8,8 +8,8 @@ import os
 from copy import deepcopy
 
 # Third Party Libraries
-import mock
 import pytest
+import pytest_asyncio
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
 
@@ -18,7 +18,7 @@ from git_cdn.lfs_cache_manager import LFSCacheFile
 from git_cdn.lfs_cache_manager import LFSCacheManager
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 def cache_manager(tmpworkdir):
     assert not tmpworkdir.listdir()
     c = LFSCacheManager("https://upstream", "http://base", None)
@@ -44,6 +44,7 @@ DOWNLOAD_RESPONSE = {
 }
 
 
+@pytest.mark.asyncio
 async def test_hook_lfs_batch(cache_manager, cdn_event_loop):
     content = json.dumps(DOWNLOAD_RESPONSE)
     content = await cache_manager.hook_lfs_batch(content)
@@ -55,6 +56,7 @@ async def test_hook_lfs_batch(cache_manager, cdn_event_loop):
     assert content == exp
 
 
+@pytest.mark.asyncio
 async def test_hook_lfs_batch_no_object(cache_manager, cdn_event_loop):
     response = DOWNLOAD_RESPONSE.copy()
     del response["objects"]
@@ -63,6 +65,7 @@ async def test_hook_lfs_batch_no_object(cache_manager, cdn_event_loop):
     assert content == '{"transfer": "basic"}'
 
 
+@pytest.mark.asyncio
 async def test_hook_lfs_batch_no_action(cache_manager, cdn_event_loop):
     response = deepcopy(DOWNLOAD_RESPONSE)
     del response["objects"][0]["actions"]
@@ -74,6 +77,7 @@ async def test_hook_lfs_batch_no_action(cache_manager, cdn_event_loop):
     )
 
 
+@pytest.mark.asyncio
 async def test_download_gzip(cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client):
     TEXT = "Hello, world"
     ZTEXT = gzip.compress(TEXT.encode())
@@ -99,6 +103,7 @@ async def test_download_gzip(cache_manager, tmpworkdir, cdn_event_loop, aiohttp_
         assert f.read() == TEXT
 
 
+@pytest.mark.asyncio
 async def test_download(cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client):
     TEXT = "Hello, world"
 
@@ -123,6 +128,7 @@ async def test_download(cache_manager, tmpworkdir, cdn_event_loop, aiohttp_clien
         assert f.read() == TEXT
 
 
+@pytest.mark.asyncio
 async def test_download_bad_checksum(
     cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
@@ -141,6 +147,7 @@ async def test_download_bad_checksum(
         await cache_manager.get_from_cache(path, {})
 
 
+@pytest.mark.asyncio
 async def test_download_cache_miss(
     cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
@@ -161,6 +168,7 @@ async def test_download_cache_miss(
     assert resp.body._value.read().decode() == TEXT
 
 
+@pytest.mark.asyncio
 async def test_download_cache_hit(
     cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
@@ -189,6 +197,7 @@ async def test_download_cache_hit(
     assert resp.body._value.read().decode() == TEXT
 
 
+@pytest.mark.asyncio
 async def test_download_cache_being_written(
     cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):
@@ -218,6 +227,7 @@ async def test_download_cache_being_written(
         assert f.read() == TEXT
 
 
+@pytest.mark.asyncio
 async def test_download_error(
     cache_manager, tmpworkdir, cdn_event_loop, aiohttp_client
 ):

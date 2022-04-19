@@ -157,8 +157,8 @@ def get_olders(caches, item_types):
     output: item_types with feed values if possible
 
     """
-    for k in caches:
-        for i in caches[k].items:
+    for found_cache in caches.values():
+        for i in found_cache.items:
             if i.type in item_types and item_types[i.type] is None:
                 print(f"Older {i.type}: {i}")
                 item_types[i.type] = i
@@ -189,11 +189,11 @@ def clean_cdn_cache(caches, threshold, delete):
     threshold = threshold * 1024**3
     total_clean_size = 0
     cleaned_files = []
-    for k in caches:
-        caches[k].items.sort(key=mtime)
-        while must_clean(caches[k].path, threshold, total_clean_size, delete):
+    for found_cache in caches.values():
+        found_cache.items.sort(key=mtime)
+        while must_clean(found_cache.path, threshold, total_clean_size, delete):
             try:
-                g = caches[k].items.pop(0)
+                g = found_cache.items.pop(0)
             except IndexError:
                 print(
                     "The whole cache has been removed a the threshold has not been reached"
@@ -233,6 +233,8 @@ def clean_cdn_cache(caches, threshold, delete):
         **infos,
     )
     print(f"Total size that would be deleted {sizeof_fmt(total_clean_size)}")
+
+    return cleaned_files
 
 
 def main():

@@ -1,9 +1,13 @@
 import os
+from abc import ABC
+from abc import abstractmethod
 from datetime import datetime
 from pathlib import Path
 from shutil import rmtree
 
 from structlog import getLogger
+
+from git_cdn.util import FileLock
 
 NOW = datetime.now()
 
@@ -31,7 +35,14 @@ def dir_size(directory):
     return size
 
 
-class BasePrune:
+class BasePrune(ABC):
+    def __init__(self, input) -> None:
+        super().__init__()
+        self.file = input
+        self.path = input.path
+        self._mtime = None
+        self._size = None
+
     def __str__(self):
         return f"{self.path:70}\t{self.age} days({self.age_sec} sec)\t{self.size_fmt}"
 
@@ -39,10 +50,17 @@ class BasePrune:
         return self.__str__()
 
     @property
+    @abstractmethod
+    def lockfile(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
     def mtime(self):
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def size(self):
         raise NotImplementedError
 
@@ -73,13 +91,20 @@ class BasePrune:
     def size_fmt(self):
         return sizeof_fmt(self.size)
 
+    @abstractmethod
+    def _delete(self):
+        raise NotImplementedError
+
+    def delete(self):
+        with FileLock(self.lockfile) as lockfile:
+            self._delete()
+            lockfile.delete()
+
 
 class GitRepo(BasePrune):
-    def __init__(self, directory):
-        self.lockfile = directory.path + ".lock"
-        self.path = directory.path
-        self._mtime = None
-        self._size = None
+    @property
+    def lockfile(self):
+        return f"{self.path}.lock"
 
     @property
     def mtime(self):
@@ -92,14 +117,9 @@ class GitRepo(BasePrune):
             self._size = dir_size(self.path)
         return self._size
 
-    def delete(self):
+    def _delete(self):
         print(f"Delete {self.path}", end="")
         rmtree(self.path, ignore_errors=True)
-        try:
-            os.unlink(self.lockfile)
-        except FileNotFoundError:
-            pass
-        print("\t\t[OK]")
 
 
 def debug(item):
@@ -119,11 +139,9 @@ def find_git_repo(s):
 
 
 class LfsFile(BasePrune):
-    def __init__(self, file):
-        self.file = file
-        self.path = file.path
-        self.lock = file.path + ".lock"
-        self._mtime = None
+    @property
+    def lockfile(self):
+        return self.path
 
     @property
     def mtime(self):
@@ -135,13 +153,9 @@ class LfsFile(BasePrune):
     def size(self):
         return self.file.stat().st_size
 
-    def delete(self):
+    def _delete(self):
         print(f"Removing {self.path}")
         os.unlink(self.path)
-        try:
-            os.unlink(self.lock)
-        except FileNotFoundError:
-            pass
         tree = os.path.dirname(self.path)
         while tree != "lfs":
             try:
@@ -164,12 +178,10 @@ def find_lfs(s):
 
 
 class BundleFile(BasePrune):
-    def __init__(self, file):
-        self.file = file
-        self.path = file.path
+    @property
+    def lockfile(self):
         # remove "_clone.bundle" and add ".lock"
-        self.lock = file.path[:-13] + ".lock"
-        self._mtime = None
+        return f"{self.path[:-13]}.lock"
 
     @property
     def mtime(self):
@@ -181,13 +193,9 @@ class BundleFile(BasePrune):
     def size(self):
         return self.file.stat().st_size
 
-    def delete(self):
+    def _delete(self):
         print(f"Removing {self.path}")
         os.unlink(self.path)
-        try:
-            os.unlink(self.lock)
-        except FileNotFoundError:
-            pass
 
 
 def find_bundle(s):

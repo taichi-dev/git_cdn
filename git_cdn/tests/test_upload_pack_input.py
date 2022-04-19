@@ -4,6 +4,7 @@ import os
 
 # Third Party Libraries
 import pytest
+import pytest_asyncio
 
 from git_cdn.upload_pack_input_parser import PacketLineParser
 from git_cdn.upload_pack_input_parser import UploadPackInputParser
@@ -31,7 +32,7 @@ with open(os.path.join(os.path.dirname(__file__), "upload_pack_inputs.json")) as
 TEST_BATCH_NUM = 1
 
 
-@pytest.fixture(params=range(len(_upload_pack_inputs) // TEST_BATCH_NUM))
+@pytest_asyncio.fixture(params=range(len(_upload_pack_inputs) // TEST_BATCH_NUM))
 def upload_pack_inputs(request):
     return [
         x.encode()

@@ -97,10 +97,12 @@ async def parse(filename):
     return plcp
 
 
+@pytest.mark.asyncio
 async def test_parse_pkt_chunk():
     await parse("pack1")
 
 
+@pytest.mark.asyncio
 async def test_parse_pkt_chunk2():
     with pytest.raises(PacketLineChunkParser.ParseError):
         await parse("pack2")

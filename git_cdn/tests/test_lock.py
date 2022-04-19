@@ -47,6 +47,7 @@ async def locking_coroutine(filename, mode, done, task_id):
     return 1
 
 
+@pytest.mark.asyncio
 async def test_lock(tmpdir, cdn_event_loop):
     reset_log()
     fn = str(tmpdir / "lock.lock")
@@ -55,6 +56,7 @@ async def test_lock(tmpdir, cdn_event_loop):
     await gather(task1, release_promises(p1))
 
 
+@pytest.mark.asyncio
 async def test_lock_ex_sh(tmpdir, cdn_event_loop):
     reset_log()
     fn = str(tmpdir / "lock.lock")
@@ -67,6 +69,7 @@ async def test_lock_ex_sh(tmpdir, cdn_event_loop):
     await gather(task1, task2, release_promises(p1, p2))
 
 
+@pytest.mark.asyncio
 async def test_lock_ex_sh_sh(tmpdir, cdn_event_loop):
     reset_log()
     fn = str(tmpdir / "lock.lock")
@@ -84,6 +87,7 @@ async def test_lock_ex_sh_sh(tmpdir, cdn_event_loop):
 
 
 @pytest.mark.parametrize("wait_time", [0, 0.1, 0.01, 0.001, 0.0001, 0.00001])
+@pytest.mark.asyncio
 async def test_lock_ex_sh_cancel_wait(tmpdir, cdn_event_loop, wait_time):
     reset_log()
     fn = str(tmpdir / "lock.lock")
@@ -107,6 +111,7 @@ async def test_lock_ex_sh_cancel_wait(tmpdir, cdn_event_loop, wait_time):
 # @pytest.mark.skip()
 @pytest.mark.parametrize("with_cancel_monkey", [True, False])
 @pytest.mark.parametrize("num_times", [10])
+@pytest.mark.asyncio
 async def test_monkey_lock(tmpdir, cdn_event_loop, num_times, with_cancel_monkey):
     monkey = os.path.join(os.path.dirname(__file__), "lock_monkey.py")
     dl = []

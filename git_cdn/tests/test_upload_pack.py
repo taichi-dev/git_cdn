@@ -87,6 +87,7 @@ def assert_upload_ok(data):
     assert data.endswith(b"0000")
 
 
+@pytest.mark.asyncio
 async def test_basic(tmpdir, cdn_event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
@@ -98,6 +99,7 @@ async def test_basic(tmpdir, cdn_event_loop):
     assert_upload_ok(writer.output)
 
 
+@pytest.mark.asyncio
 async def test_huge(tmpdir, cdn_event_loop):
     # we write 1000 times the same want (simulating a repo with tons of branch on the same commit)
     HUGE_CLONE_INPUT = (
@@ -115,6 +117,7 @@ async def test_huge(tmpdir, cdn_event_loop):
     assert_upload_ok(writer.output)
 
 
+@pytest.mark.asyncio
 async def test_huge2(tmpdir, cdn_event_loop):
     # we write 15000 times the same unknow want
     # git upload pack will close stdin before reading all the input,
@@ -135,6 +138,7 @@ async def test_huge2(tmpdir, cdn_event_loop):
     assert b"not our ref" in data
 
 
+@pytest.mark.asyncio
 async def test_fetch_needed(tmpdir, cdn_event_loop):
     workdir = tmpdir / "workdir"
     writer = FakeStreamWriter()
@@ -156,6 +160,7 @@ async def test_fetch_needed(tmpdir, cdn_event_loop):
     assert_upload_ok(writer.output)
 
 
+@pytest.mark.asyncio
 async def test_shallow(tmpdir, cdn_event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
@@ -169,6 +174,7 @@ async def test_shallow(tmpdir, cdn_event_loop):
     assert full.endswith(b"0000")
 
 
+@pytest.mark.asyncio
 async def test_shallow_trunc(tmpdir, cdn_event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
@@ -184,6 +190,7 @@ async def test_shallow_trunc(tmpdir, cdn_event_loop):
     assert writer.output == b"0000"
 
 
+@pytest.mark.asyncio
 async def test_shallow_trunc2(tmpdir, cdn_event_loop):
     writer = FakeStreamWriter()
     # make sur the cache is warm
@@ -216,6 +223,7 @@ async def test_shallow_trunc2(tmpdir, cdn_event_loop):
         pytest.param(CLONE_INPUT[:-1], id="detected by gitcdn input parser"),
     ],
 )
+@pytest.mark.asyncio
 async def test_wrong_input(tmpdir, cdn_event_loop, clone_input):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
@@ -229,6 +237,7 @@ async def test_wrong_input(tmpdir, cdn_event_loop, clone_input):
         assert full[4:7] == b"ERR"
 
 
+@pytest.mark.asyncio
 async def test_flush_input(tmpdir, cdn_event_loop):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
@@ -260,6 +269,7 @@ async def test_flush_input(tmpdir, cdn_event_loop):
     ],
     ids=["all refs in repo", "missing refs in repo"],
 )
+@pytest.mark.asyncio
 async def test_missing_want(tmpdir, cdn_event_loop, ref, missing_ref):
     writer = FakeStreamWriter()
     proc = UploadPackHandler(
@@ -272,6 +282,7 @@ async def test_missing_want(tmpdir, cdn_event_loop, ref, missing_ref):
     assert (await proc.missing_want(ref)) == missing_ref
 
 
+@pytest.mark.asyncio
 async def test_ensure_input_wants_in_rcache(tmpdir, cdn_event_loop, mocker):
     wants = [
         b"8f6312ec029e7290822bed826a05fd81e65b3b7c",
@@ -305,6 +316,7 @@ async def test_ensure_input_wants_in_rcache(tmpdir, cdn_event_loop, mocker):
     mock_update.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_unknown_want_cache(tmpdir, cdn_event_loop, mocker):
     """tests that the 'uploadPack' method runs well
     when running 'execute' method with a repo with missing 'wants'
