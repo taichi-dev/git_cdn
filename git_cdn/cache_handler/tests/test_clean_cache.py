@@ -4,6 +4,7 @@ import os
 import subprocess
 import threading
 import time
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -103,9 +104,9 @@ def anotherrepocache(tmpdir, header_for_git):
             )
 
         proc = subprocess.check_call(
-            ["git", *header_for_git, "clone", str(url), "-b", branch]
+            ["git", *header_for_git, "clone", "--bare", str(url), "-b", branch]
         )
-        with FileLock(gitrepo / reponame / ".git.lock"):
+        with FileLock(gitrepo / f"{reponame}.git.lock"):
             time.sleep(0.5)
         assert proc == 0
     time.sleep(1)
@@ -118,7 +119,8 @@ def test_clean_repocache(mocker, anotherrepocache):
     )
     anotherrepocache.chdir()
 
-    lockfilename = FileLock(anotherrepocache / "git" / "test_git_cdn" / ".git.lock")
+    repo = Path(anotherrepocache) / "git" / "test_git_cdn.git"
+    lockfilename = FileLock(anotherrepocache / "git" / "test_git_cdn.git.lock")
     lockfilename.lock()
 
     caches = scan_cache(True, False, False)
@@ -132,5 +134,7 @@ def test_clean_repocache(mocker, anotherrepocache):
 
     lockfilename.release()
     assert lockfilename.exists
+    assert repo.exists()
     t1.join()
     assert not lockfilename.exists
+    assert not repo.exists()
