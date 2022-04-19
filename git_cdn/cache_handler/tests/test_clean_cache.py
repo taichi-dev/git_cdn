@@ -7,6 +7,7 @@ import time
 
 import pytest
 import pytest_asyncio
+import yarl
 
 from git_cdn.cache_handler.clean_cache import Cache
 from git_cdn.cache_handler.clean_cache import clean_cdn_cache
@@ -90,9 +91,19 @@ def anotherrepocache(tmpdir, header_for_git):
     gitrepo.chdir()
     for repo, branch in repolist:
         reponame = os.path.basename(repo)[:-4]
-        url = f"{os.getenv('GITSERVER_UPSTREAM') or os.getenv('CI_SERVER_URL')}/{repo}"
+        server_url = os.getenv("GITSERVER_UPSTREAM") or os.getenv("CI_SERVER_URL")
+        server_url = server_url[:-1] if server_url.endswith("/") else server_url
+        url = yarl.URL(server_url) / repo
+        if "CREDS" in os.environ:
+            user, _, password = os.getenv("CREDS").partition(":")
+            url = url.with_user(user).with_password(password)
+        elif "CI_JOB_TOKEN" in os.environ:
+            url = url.with_user("gitlab-ci-token").with_password(
+                os.getenv("CI_JOB_TOKEN")
+            )
+
         proc = subprocess.check_call(
-            ["git", *header_for_git, "clone", url, "-b", branch]
+            ["git", *header_for_git, "clone", str(url), "-b", branch]
         )
         with FileLock(gitrepo / reponame / ".git.lock"):
             time.sleep(0.5)
