@@ -83,7 +83,9 @@ class UploadPackHandler:
             if self.pcache:
                 await asyncio.gather(
                     write_input(proc, input.input),
-                    asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly)),
+                    asyncio.shield(
+                        self.pcache.cache_pack(proc.stdout.readexactly, self.writer)
+                    ),
                 )
             else:
                 await asyncio.gather(

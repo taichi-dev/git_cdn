@@ -6,10 +6,11 @@ import os
 from datetime import datetime
 from time import time
 
+# Third Party Libraries
+from aiohttp.abc import AbstractStreamWriter
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 
-# Third Party Libraries
 from git_cdn.aiolock import lock
 from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.util import FileLock
@@ -96,22 +97,35 @@ class PackCache:
         # update mtime for LRU
         os.utime(self.filename, None)
 
-    async def cache_pack(self, read_func):
+    async def cache_pack(self, read_func, stream_writer: AbstractStreamWriter = None):
         log.debug("Cache Miss, create new cache entry", hash=self.hash)
         self.hit = False
         pkt_parser = PacketLineChunkParser(read_func)
+        end_with_error = False
         with open(self.filename, "wb") as f:
             try:
                 async for data in pkt_parser:
                     f.write(data)
-            except Exception:
-                log.exception(
-                    "Aborting cache_pack", hash=self.hash, filename=self.filename
+
+            except Exception as e:
+                log.error(
+                    "Aborting cache_pack",
+                    hash=self.hash,
+                    filename=self.filename,
+                    error_message=str(e),
                 )
-                try:
-                    os.unlink(self.filename)
-                except FileNotFoundError:
-                    pass
+                end_with_error = True
+
+        if end_with_error:
+            # In case of error, we directly write the data to the stream writer
+            # This will allow the client to receive the initial error reponse.
+            if stream_writer:
+                with open(self.filename, "rb") as f:
+                    await stream_writer.write(f.read())
+            try:
+                os.unlink(self.filename)
+            except FileNotFoundError:
+                pass
 
 
 class PackCacheCleaner:

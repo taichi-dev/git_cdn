@@ -89,3 +89,16 @@ async def test_corrupt(tmpworkdir):
         f.write(data)
     assert os.path.exists(pc.filename)
     assert not pc.exists()
+
+
+@pytest.mark.asyncio
+async def test_pack_cache_error(tmpworkdir, cdn_event_loop):
+    pc = PackCache("error")
+    fakewrite = FakeStreamWriter()
+    fakeread = DataReader(get_data("upload_pack_error.bin"))
+
+    async with pc.write_lock():
+        await pc.cache_pack(fakeread.read, fakewrite)
+
+    assert fakewrite.output == get_data("upload_pack_error.bin")
+    assert not pc.exists()
