@@ -83,7 +83,9 @@ class UploadPackHandler:
             if self.pcache:
                 await asyncio.gather(
                     write_input(proc, input.input),
-                    asyncio.shield(self.pcache.cache_pack(proc.stdout.readexactly)),
+                    asyncio.shield(
+                        self.pcache.cache_pack(proc.stdout.readexactly, self.writer)
+                    ),
                 )
             else:
                 await asyncio.gather(
@@ -107,11 +109,14 @@ class UploadPackHandler:
             timeout = 10 * 60 if self.pcache else GIT_PROCESS_WAIT_TIMEOUT
             await ensure_proc_terminated(proc, "git upload-pack", timeout)
             if proc.returncode != 0:
+                error_message = await proc.stderr.read()
                 bind_contextvars(
                     upload_pack_status="error",
                     upload_pack_returncode=proc.returncode,
-                    reason=await proc.stderr.read(),
+                    reason=error_message,
                 )
+                await self.write_pack_error(error_message.decode())
+
             log.debug("Upload pack done", pid=proc.pid)
 
     async def write_pack_error(self, error: str):

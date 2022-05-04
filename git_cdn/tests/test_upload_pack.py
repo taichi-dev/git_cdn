@@ -213,7 +213,7 @@ async def test_shallow_trunc2(tmpdir, cdn_event_loop):
     )
     content = UploadPackInputParser(SHALLOW_INPUT_TRUNC[:-1])
     await proc.run(content)
-    assert writer.output == b""
+    assert writer.output == b"0033ERR fatal: the remote end hung up unexpectedly\n"
 
 
 @pytest.mark.parametrize(
