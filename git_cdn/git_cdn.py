@@ -337,7 +337,15 @@ class GitCDN:
             parallel_request -= 1
 
     async def proxify(self, request):
-        return await self.proxify_with_data(request, request.content)
+        # Avoid sending a stream if the body is already fully buffered. This is
+        # especially important if the body is empty as otherwise aiohttp will
+        # send a `Transfer-Encoding: chunked` header with an empty body that
+        # can confuse some caches/proxies.
+        if request.content.at_eof():
+            data = await request.content.read()
+        else:
+            data = request.content
+        return await self.proxify_with_data(request, data)
 
     async def proxify_with_data(self, request, data):
         """Gitcdn acts as a dumb proxy to simplfy git 'insteadof' configuration."""
