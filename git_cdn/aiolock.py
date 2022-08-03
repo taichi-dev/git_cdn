@@ -64,6 +64,7 @@ class Lock:
             log.error(
                 "Error occurs while locking",
                 exception="".join(traceback.format_exception(exc_type, exc, tb)),
+                exception_type=exc_type.__name__,
             )
         self.release()
 

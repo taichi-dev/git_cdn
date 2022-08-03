@@ -107,7 +107,7 @@ def generate_url(base, path, auth=None):
     return url
 
 
-def log_proc_if_error(proc, cmd):
+def log_proc_if_error(proc: Process, cmd: str):
     if not proc.returncode:
         return
     cmd_stderr = proc.stderr._buffer.decode() if proc.stderr else ""
@@ -130,7 +130,7 @@ def log_proc_if_error(proc, cmd):
     )
 
 
-async def wait_proc(proc, cmd, timeout):
+async def wait_proc(proc: Process, cmd: str, timeout: int):
     try:
         if proc.returncode is None:
             await asyncio.wait_for(proc.wait(), timeout=timeout)

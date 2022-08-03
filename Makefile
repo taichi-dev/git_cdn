@@ -3,8 +3,8 @@
 MODULE:=git_cdn config.py
 PIP:=/usr/bin/env python3 -m pip
 POETRY:=/usr/bin/env python3 -m poetry
-PIP_VERSION:="==22.0.3"
-POETRY_VERSION:="==1.1.12"
+PIP_VERSION:="==22.2"
+POETRY_VERSION:="==1.1.14"
 
 # poetry enforce semver PEP 440 https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
 # So convert v1.7.1-55-af3454 to v1.7.1+55.af3454

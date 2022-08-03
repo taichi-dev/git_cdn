@@ -3,11 +3,25 @@ FROM python:3.9-alpine
 WORKDIR     /app
 
 # Only install dependencies
-RUN  apk --no-cache add make git libstdc++ && \
-    apk add --update --no-cache libffi curl openssl gzip
+RUN  apk --no-cache add \
+        git \
+        libstdc++ \
+        make \
+     && \
+     apk add --update --no-cache \
+        curl \
+        gzip \
+        libffi \
+        openssl
 
 ADD dist/git_cdn-*.whl requirements.txt /app/
-RUN apk add --update --no-cache --virtual .build-deps alpine-sdk musl-dev libffi-dev openssl-dev &&\
+RUN apk add --update --no-cache --virtual \
+        .build-deps \
+        alpine-sdk \
+        libffi-dev \
+        musl-dev \
+        openssl-dev \
+    &&\
     python -m pip install --constraint requirements.txt /app/git_cdn-*.whl && \
     apk del .build-deps
 
