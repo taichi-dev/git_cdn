@@ -20,7 +20,7 @@ log = getLogger()
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # chunk size when reading the cache file
-CHUNK_SIZE = 64 * 1024
+CHUNK_SIZE = os.getenv("PACK_CACHE_CHUNK_SIZE", 1024 * 1024)
 
 
 class PackCache:
