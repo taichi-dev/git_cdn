@@ -20,9 +20,11 @@ from git_cdn.util import get_subdir
 log = getLogger()
 BACKOFF_START = float(os.getenv("BACKOFF_START", "0.5"))
 BACKOFF_COUNT = int(os.getenv("BACKOFF_COUNT", "5"))
+PROGRESS_OPTION = os.getenv("GIT_PROGRESS_OPTION", "--progress")
 
 
 async def exec_git(*args):
+
     return await asyncio.create_subprocess_exec(
         "git",
         *args,
@@ -108,6 +110,7 @@ class RepoCache:
                 "--git-dir",
                 self.directory,
                 "fetch",
+                PROGRESS_OPTION,
                 "--prune",
                 "--force",
                 "--tags",
@@ -127,7 +130,7 @@ class RepoCache:
                 async with lock(bundle_lock, mode=fcntl.LOCK_SH):
                     # try to clone the bundle file instead
                     _, stderr, returncode = await self.run_git(
-                        "clone", "--bare", bundle_file, self.directory
+                        "clone", PROGRESS_OPTION, "--bare", bundle_file, self.directory
                     )
                     if returncode == 0:
                         break
@@ -146,7 +149,7 @@ class RepoCache:
                     rm_proc, f"rm -rf {self.directory}", timeout=3600
                 )
             _, stderr, returncode = await self.run_git(
-                "clone", "--bare", self.url, self.directory
+                "clone", PROGRESS_OPTION, "--bare", self.url, self.directory
             )
             if returncode == 0:
                 break
