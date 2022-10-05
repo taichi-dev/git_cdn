@@ -1,0 +1,24 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CDN",
+      "type": "python",
+      "request": "launch",
+      "program": ".venv/bin/gunicorn",
+      "args": [
+        "-c", "config.py",
+        "git_cdn.app:app",
+        "-b", ":8000"
+      ],
+      "env": {
+        "GITSERVER_UPSTREAM": "[git_server_url]",
+        "WORKING_DIRECTORY": "[local_cache_folder]"
+      },
+      "postDebugTask": "killdebugger"
+  }
+  ]
+}
