@@ -1,15 +1,23 @@
 .PHONY: build
 
 MODULE:=git_cdn config.py
-PIP:=/usr/bin/env python3 -m pip
-POETRY:=/usr/bin/env python3 -m poetry
+PYTHON?=python3
+PIP:=$(PYTHON) -m pip
+POETRY?=$(PYTHON) -m poetry
 PIP_VERSION:="==22.2.2"
-POETRY_VERSION:="==1.2.0"
+POETRY_VERSION:="==1.2.1"
 
 # poetry enforce semver PEP 440 https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
 # So convert v1.7.1-55-af3454 to v1.7.1+55.af3454
 GITCDN_VERSION := $$(git describe --tags HEAD | sed s/\-/\+/ | sed s/\-/\./)
 GITCDN_LOCALCHANGE := $$(if [ "$$(git status -s -uno)" ]; then echo ".dirty"; fi)
+
+# pip install --user for developer environment, without for CI
+ifeq ($(CI),true)
+	PIP_INSTALL_OPT=
+else
+	PIP_INSTALL_OPT=--user
+endif
 
 all: dev style checks test
 style: isort black
@@ -19,7 +27,7 @@ sct: style checks test
 checks: isort-check black-check flake8
 
 poetry-install:
-	@$(PIP) install --user --upgrade "pip$(PIP_VERSION)" "poetry$(POETRY_VERSION)"
+	@$(PIP) install $(PIP_INSTALL_OPT) --upgrade "pip$(PIP_VERSION)" "poetry$(POETRY_VERSION)"
 	@$(POETRY) run pip install "pip$(PIP_VERSION)"
 
 git-config:
