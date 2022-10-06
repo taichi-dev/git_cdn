@@ -9,7 +9,7 @@ from aiohttp.web_exceptions import HTTPUnauthorized
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 
-from git_cdn.aiolock import lock
+from git_cdn.lock.aio_lock import lock
 from git_cdn.util import GIT_PROCESS_WAIT_TIMEOUT
 from git_cdn.util import backoff
 from git_cdn.util import ensure_proc_terminated

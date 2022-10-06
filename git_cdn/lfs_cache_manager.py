@@ -10,7 +10,7 @@ from aiohttp.web_exceptions import HTTPNotFound
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 
-from git_cdn.aiolock import lock
+from git_cdn.lock.aio_lock import lock
 from git_cdn.util import check_path
 from git_cdn.util import get_subdir
 

@@ -12,7 +12,7 @@ from aiohttp import TCPConnector
 from aiohttp import web
 from structlog import getLogger
 
-from git_cdn.aiolock import lock
+from git_cdn.lock.aio_lock import lock
 from git_cdn.util import get_bundle_paths
 
 log = getLogger()

@@ -11,7 +11,7 @@ from asyncio import sleep
 # Third Party Libraries
 import pytest
 
-from git_cdn.aiolock import lock
+from git_cdn.lock.aio_lock import lock
 
 execution = []
 
