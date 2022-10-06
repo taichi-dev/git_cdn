@@ -10,6 +10,7 @@ from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 from structlog.contextvars import get_contextvars
 
+from git_cdn.log import bind_context_from_exp
 from git_cdn.pack_cache import PackCache
 from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.packet_line import to_packet
@@ -92,12 +93,8 @@ class UploadPackHandler:
                     write_input(proc, input.input),
                     self.flush_to_writer(proc.stdout.read),
                 )
-        except (
-            asyncio.CancelledError,
-            CancelledError,
-            ConnectionResetError,
-        ):
-            bind_contextvars(canceled=True)
+        except (asyncio.CancelledError, CancelledError, ConnectionResetError) as e:
+            bind_context_from_exp(e)
             log.warning("Client disconnected during upload-pack")
             raise
         except Exception:
