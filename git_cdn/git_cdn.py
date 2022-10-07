@@ -27,6 +27,7 @@ from git_cdn.client_session import ClientSessionWithRetry
 from git_cdn.clone_bundle_manager import CloneBundleManager
 from git_cdn.clone_bundle_manager import close_bundle_session
 from git_cdn.lfs_cache_manager import LFSCacheManager
+from git_cdn.log import bind_context_from_exp
 from git_cdn.log import enable_console_logs
 from git_cdn.log import enable_udp_logs
 from git_cdn.upload_pack import UploadPackHandler
@@ -314,22 +315,8 @@ class GitCDN:
             parallel_request += 1
             response = await self._routing_handler(request)
             return response
-        except asyncio.CancelledError:
-            bind_contextvars(canceled=True)
-            raise
-        except CancelledError:
-            bind_contextvars(task_canceled=True)
-            raise
-        except ConnectionResetError as e:
-            bind_contextvars(conn_reset=True)
-            response = e
-            raise
-        except HTTPException as e:
-            bind_contextvars(exception_reason=e.reason)
-            response = e
-            raise
         except BaseException as e:
-            bind_contextvars(exception_type=object_module_name(e), exception_str=str(e))
+            bind_context_from_exp(e)
             response = e
             raise
         finally:

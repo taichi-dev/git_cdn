@@ -7,7 +7,7 @@ from shutil import rmtree
 
 from structlog import getLogger
 
-from git_cdn.util import FileLock
+from git_cdn.lock.file_lock import FileLock
 
 NOW = datetime.now()
 

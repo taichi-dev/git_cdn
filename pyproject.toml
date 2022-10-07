@@ -17,6 +17,7 @@ homepage = "https://gitlab.com/grouperenault/git_cdn"
 
 packages = [
     { include = 'git_cdn/*.py' },
+    { include = 'git_cdn/lock/*.py' },
     { include = 'git_cdn/cache_handler/*.py'}
 ]
 include = [{path = 'git_cdn/tests/**/*', format = 'sdist'},

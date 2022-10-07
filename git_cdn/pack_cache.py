@@ -11,9 +11,9 @@ from aiohttp.abc import AbstractStreamWriter
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 
-from git_cdn.aiolock import lock
+from git_cdn.lock.aio_lock import lock
+from git_cdn.lock.file_lock import FileLock
 from git_cdn.packet_line import PacketLineChunkParser
-from git_cdn.util import FileLock
 from git_cdn.util import get_subdir
 
 log = getLogger()

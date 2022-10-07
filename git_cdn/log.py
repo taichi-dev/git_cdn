@@ -1,18 +1,25 @@
 # Standard Library
+import asyncio
+import functools
 import logging
-import numbers
 import socket
 import sys
+import traceback
 import uuid
+from inspect import iscoroutine
 from logging.handlers import DatagramHandler
 from time import sleep
 
 # Third Party Libraries
 import structlog
 import ujson
+from aiohttp.web_exceptions import HTTPException
+from structlog.contextvars import bind_contextvars
 from structlog.contextvars import get_contextvars
 from structlog.threadlocal import bind_threadlocal
 from structlog.threadlocal import clear_threadlocal
+
+from git_cdn.util import object_module_name
 
 g_version = "unknown"
 g_host = socket.gethostname()
@@ -193,3 +200,12 @@ def enable_console_logs(level=None, output=sys.stdout, context=False):
     rlog = logging.getLogger()
     rlog.addHandler(out_handler)
     rlog.addHandler(err_handler)
+
+
+def bind_context_from_exp(exp):
+    if isinstance(exp, HTTPException):
+        bind_contextvars(exception_reason=exp.reason)
+    else:
+        bind_contextvars(
+            exception_type=object_module_name(exp), exception=traceback.format_exc()
+        )

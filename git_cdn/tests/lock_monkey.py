@@ -8,7 +8,7 @@ from asyncio import gather
 from asyncio import sleep
 
 # Third Party Libraries
-from git_cdn.aiolock import lock
+from git_cdn.lock.aio_lock import lock
 
 FILENAME = "competition_file.txt"
 

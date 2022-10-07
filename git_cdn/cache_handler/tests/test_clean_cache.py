@@ -15,7 +15,7 @@ from git_cdn.cache_handler.clean_cache import clean_cdn_cache
 from git_cdn.cache_handler.clean_cache import scan_cache
 from git_cdn.cache_handler.common import find_git_repo
 from git_cdn.conftest import GITLAB_REPO_TEST_GROUP
-from git_cdn.util import FileLock
+from git_cdn.lock.file_lock import FileLock
 
 repolist = [
     (f"{GITLAB_REPO_TEST_GROUP}/test_git_cdn.git", "master"),
