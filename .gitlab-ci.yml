@@ -3,12 +3,14 @@ stages:
     - docker
     - integration-test
     - publish
+
 default:
-    image: python:3.9.10
+    image: python:3.10
     interruptible: true
     before_script:
         - export PATH=$HOME/.local/bin:$PATH
         - apt-get update && apt-get install -y git-lfs
+
 .only:
     only: &only_changes
         changes:
@@ -20,7 +22,8 @@ default:
             - "Dockerfile"
             - "*.yml"
             - ".*"
-checks:3.9:
+
+checks:
     extends: .only
     stage: test
     variables:
@@ -28,6 +31,11 @@ checks:3.9:
     script:
         - make dev
         - make check
+    parallel:
+        matrix:
+            - IMAGE : 
+                - python:3.9
+                - python:3.10
 
 build:
     extends: .only
@@ -62,6 +70,11 @@ tests:
         - git config --global uploadpack.allowfilter true
         - make dev
         - make test
+    parallel:
+        matrix:
+            - IMAGE : 
+                - python:3.9
+                - python:3.10
 
 markdownlint:
     stage: test
@@ -142,7 +155,6 @@ pages:
     artifacts:
         paths:
             - public
-    image: python:3.9
     script:
         - mkdir -p public/coverage
         - mv -v coverage_html/* public/coverage
