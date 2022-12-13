@@ -49,10 +49,10 @@ install-no-dev:
 	@$(POETRY) install --no-dev
 
 isort:
-	@$(POETRY) run isort -rc $(MODULE)
+	@$(POETRY) run isort $(MODULE)
 
 isort-check:
-	@$(POETRY) run isort -rc -c $(MODULE)
+	@$(POETRY) run isort -c $(MODULE)
 
 black:
 	@$(POETRY) run black $(MODULE)

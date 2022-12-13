@@ -191,7 +191,14 @@ class UploadPackHandler:
 
     async def missing_want(self, wants):
         """Return True if at least one sha1 in 'wants' is missing in self.rcache"""
-        stdout = await self.rcache.cat_file(wants)
+        try:
+            stdout = await self.rcache.cat_file(wants)
+        except FileNotFoundError:
+            # Exception while doing git cat command
+            # Is rcache really valid ?
+            # By returning True, we will ask for an update
+            return True
+
         return b"missing" in stdout
 
     async def ensure_input_wants_in_rcache(self, wants):
