@@ -86,13 +86,15 @@ class PackCache:
                     except ConnectionResetError:
                         log.warning("connection reset while serving pack cache")
                         break
+            except asyncio.CancelledError:
+                log.info("Operation cancelled.")
             except BaseException:
                 log.exception("Unexpected exception while sending the pack")
+                if self.size() != count:
+                    log.error("Exiting on unfinished pack cache read")
                 raise
             finally:
                 bind_contextvars(complete_send_pack=(self.size() == count))
-                if self.size() != count:
-                    log.error("exiting on unfinished pack cache read")
 
         # update mtime for LRU
         os.utime(self.filename, None)
