@@ -58,7 +58,7 @@ class Lock:
         return None
 
     async def __aexit__(self, exc_type, exc, tb):
-        if exc is not None:
+        if exc is not None and not isinstance(exc, asyncio.CancelledError):
             import traceback
 
             log.error(
