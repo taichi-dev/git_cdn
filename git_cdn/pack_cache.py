@@ -20,7 +20,7 @@ log = getLogger()
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # chunk size when reading the cache file
-CHUNK_SIZE = os.getenv("PACK_CACHE_CHUNK_SIZE", 1024 * 1024)
+CHUNK_SIZE = int(os.getenv("PACK_CACHE_CHUNK_SIZE", str(1024 * 1024)))
 
 
 class PackCache:
@@ -30,8 +30,8 @@ class PackCache:
     cache the binary pack content to disk
     """
 
-    def __init__(self, hash):
-        self.hash = hash
+    def __init__(self, input_hash):
+        self.hash = input_hash
         self.dirname = get_subdir(os.path.join("pack_cache", self.hash[:2]))
         self.filename = os.path.join(self.dirname, self.hash)
         self.hit = True
@@ -189,8 +189,8 @@ class PackCacheCleaner:
         # only clean once per minute
         if self.lock.exists and time() - self.lock.mtime < 60:
             log.debug("No need to cleanup")
-            return
+            return None
+
         # This is a background task, so do not await it
         task = asyncio.get_event_loop().run_in_executor(executor, self.clean_task)
-
         return task

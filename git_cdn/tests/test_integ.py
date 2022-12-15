@@ -126,7 +126,7 @@ async def test_basic(
 
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
@@ -151,7 +151,7 @@ async def test_huge_branch(
     bigbranch = "I_DONT_CREATE_LONG_BRANCH_NAME" * 50
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
@@ -182,7 +182,7 @@ async def test_no_ending_dot_git(
 
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH[:-4])
+    url = f"{client.baseurl}/{MANIFEST_PATH[:-4]}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
@@ -206,7 +206,7 @@ async def test_basic_shallow(
 
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
@@ -231,7 +231,7 @@ async def test_basic_filter(
 
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
@@ -263,7 +263,7 @@ async def test_git_lfs(
 
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     monkeypatch.setenv("GIT_TRACE", 1)
     protocol = f"protocol.version={protocol_version}"
@@ -334,7 +334,7 @@ async def test_push(
 
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
 
@@ -397,7 +397,7 @@ async def test_parallel(
 
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     dl = []
     protocol = f"protocol.version={protocol_version}"
@@ -438,8 +438,7 @@ async def test_parallel_with_pack_cache(
     assert cdn_event_loop
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
-
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     dl = []
     protocol = f"protocol.version={protocol_version}"
@@ -479,8 +478,7 @@ async def test_pack_cache_with_depth(
     assert cdn_event_loop
     app = app()
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, MANIFEST_PATH)
-
+    url = f"{client.baseurl}/{MANIFEST_PATH}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
@@ -509,7 +507,7 @@ async def test_clone_with_bundle(
     app = app()
     DNSMASQ_PATH = GITLAB_REPO_TEST_GROUP + "/platform_external_dnsmasq.git"
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, DNSMASQ_PATH)
+    url = f"{client.baseurl}/{DNSMASQ_PATH}"
     tmpdir.chdir()
     protocol = f"protocol.version={protocol_version}"
     proc = await asyncio.create_subprocess_exec(
@@ -539,7 +537,7 @@ async def test_clone_with_bundle_but_not_exists(
     app = app()
     DNSMASQ_PATH = GITLAB_REPO_TEST_GROUP + "/404/platform_external_dnsmasq.git"
     client = await make_client(app)
-    url = "{}/{}".format(client.baseurl, DNSMASQ_PATH)
+    url = f"{client.baseurl}/{DNSMASQ_PATH}"
     tmpdir.chdir()
     proc = await asyncio.create_subprocess_exec(
         "curl", "-O", url + "/clone.bundle", stdin=asyncio.subprocess.PIPE

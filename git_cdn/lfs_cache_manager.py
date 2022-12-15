@@ -138,6 +138,7 @@ class LFSCacheFile:
         if self.raw_in_cache():
             bind_contextvars(lfs_served="raw")
             return web.Response(body=open(self.filename, "rb"))
+        return None
 
     async def download(self, session, ctx):
         t1 = time.time()
@@ -195,6 +196,7 @@ class LFSCacheManager:
         self.upstream_url = upstream_url
         self.base_url = base_url
         self.session = session
+        self.ctx = {}
 
     def set_base_url(self, base_url):
         self.base_url = base_url

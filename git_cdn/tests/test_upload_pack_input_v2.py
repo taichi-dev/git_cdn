@@ -5,6 +5,9 @@ from git_cdn.upload_pack_input_parser_v2 import UploadPackInputParserV2
 
 from .any import ANYSTRING
 
+# pylint: disable = duplicate-code
+
+
 INPUT_FETCH = (
     b"0011command=fetch0014agent=git/2.25.10001000dthin-pack000dofs-delta"
     b"0032want fcd062d2d06d00fc2a1bf3c8432effccbd186a08\n"
@@ -96,7 +99,7 @@ def test_parse_input_with_fetch():
     assert parser.done
     assert not parser.filter
     assert not parser.depth
-    assert parser.depth_lines == []
+    assert not parser.depth_lines
 
     assert parser.caps == {b"agent": b"git/2.25.1"}
 
@@ -132,7 +135,7 @@ def test_parse_input_with_haves():
     assert parser.done
     assert not parser.filter
     assert not parser.depth
-    assert parser.depth_lines == []
+    assert not parser.depth_lines
 
     assert parser.caps == {b"agent": b"git/2.25.1"}
 
@@ -168,7 +171,7 @@ def test_parse_input_with_all_basic_args():
     assert parser.done
     assert not parser.filter
     assert not parser.depth
-    assert parser.depth_lines == []
+    assert not parser.depth_lines
 
     assert parser.caps == {b"agent": b"git/2.25.1"}
 
@@ -204,7 +207,7 @@ def test_parse_input_with_object_format():
     assert parser.done
     assert not parser.filter
     assert not parser.depth
-    assert parser.depth_lines == []
+    assert not parser.depth_lines
 
     assert parser.caps == {b"object-format": b"sha1", b"agent": b"git/2.29.2.windows.2"}
 
@@ -245,14 +248,14 @@ def test_parse_input_with_duplicated_wants():
 
 
 def test_parse_upload_pack_input_error():
-    input = INPUT_FETCH.replace(b"0011", b"0111")
-    parser = UploadPackInputParserV2(input)
+    data = INPUT_FETCH.replace(b"0011", b"0111")
+    parser = UploadPackInputParserV2(data)
     assert parser.wants == set()
     assert parser.haves == set()
-    assert parser.caps == {}
+    assert not parser.caps
     assert parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 
@@ -273,31 +276,31 @@ def test_parse_input_fetch_pkt_too_soon():
 
 
 def test_parse_input_without_command():
-    input = INPUT_FETCH.replace(b"0011command=fetch", b"")
-    parser = UploadPackInputParserV2(input)
+    data = INPUT_FETCH.replace(b"0011command=fetch", b"")
+    parser = UploadPackInputParserV2(data)
     assert parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 
 
 def test_parse_input_with_unknown_cap():
-    input = INPUT_FETCH.replace(b"agent", b"abcde")
-    parser = UploadPackInputParserV2(input)
+    data = INPUT_FETCH.replace(b"agent", b"abcde")
+    parser = UploadPackInputParserV2(data)
     assert not parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 
 
 def test_parse_input_with_unknown_arg():
-    input = INPUT_FETCH.replace(b"want", b"abcd")
-    parser = UploadPackInputParserV2(input)
+    data = INPUT_FETCH.replace(b"want", b"abcd")
+    parser = UploadPackInputParserV2(data)
     assert not parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 
@@ -305,11 +308,11 @@ def test_parse_input_with_unknown_arg():
 def test_parse_input_without_flush_pkt():
     """should finish anyway :
     pkt = next(self.parser) will raise a StopIteration exception"""
-    input = INPUT_FETCH.replace(b"0000", b"")
-    parser = UploadPackInputParserV2(input)
+    data = INPUT_FETCH.replace(b"0000", b"")
+    parser = UploadPackInputParserV2(data)
     assert parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 
@@ -322,32 +325,32 @@ def test_parse_input_without_flush_pkt():
     ],
 )
 def test_input_with_response_end_pkt(current):
-    input = INPUT_FETCH.replace(current, b"0002")
-    parser = UploadPackInputParserV2(input)
+    data = INPUT_FETCH.replace(current, b"0002")
+    parser = UploadPackInputParserV2(data)
     assert parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 
 
 def test_input_with_two_delim_pkt():
-    input = INPUT_FETCH.replace(b"0009", b"0001")
-    parser = UploadPackInputParserV2(input)
+    data = INPUT_FETCH.replace(b"0009", b"0001")
+    parser = UploadPackInputParserV2(data)
     assert parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 
 
 def test_input_with_two_commands():
-    input = INPUT_FETCH.replace(
+    data = INPUT_FETCH.replace(
         b"0011command=fetch", b"0011command=fetch0014command=ls-refs"
     )
-    parser = UploadPackInputParserV2(input)
+    parser = UploadPackInputParserV2(data)
     assert parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }

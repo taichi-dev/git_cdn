@@ -8,6 +8,8 @@ import pytest
 # Third Party Libraries
 import git_cdn.util
 
+# pylint: disable=unused-argument
+
 git_cdn.util.KILLED_PROCESS_TIMEOUT = 0.1
 
 SHELLCODE1 = textwrap.dedent(

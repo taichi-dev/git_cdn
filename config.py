@@ -1,4 +1,3 @@
-# Configuration
 # Standard Library
 import asyncio
 import logging
@@ -6,13 +5,15 @@ import os
 
 from git_cdn.git_cdn import GUNICORN_WORKER_NB
 
+# pylint: disable=unused-argument,protected-access
+
 workers = GUNICORN_WORKER_NB
 # set a big timeout to avoid worker being killed, and leaking semaphore
 timeout = 3600
 # gitCDN requests take can be very long, so try to finish them before killing.
 graceful_timeout = 60 * 5
 # Tentative to avoid connection reset
-keepalive = int(os.getenv("GUNICORN_KEEPALIVE", 2))
+keepalive = int(os.getenv("GUNICORN_KEEPALIVE", "2"))
 
 # you can try different worker class
 # - aiohttp.worker.GunicornWebWorker (default)
@@ -24,7 +25,10 @@ loglevel = "debug"
 
 # if None, there won't be any log to structlog, so push it to /dev/null instead
 accesslog = "/dev/null"
-access_log_format = '%a "%r" %s %b "%{User-Agent}i" "%{X-FORWARDED-FOR}i" "%{X-CI-JOB-URL}i" "%{X-CI-PROJECT-PATH}i" "%{X-REPO-JOB-URL}i" %D'
+access_log_format = (
+    '%a "%r" %s %b "%{User-Agent}i" "%{X-FORWARDED-FOR}i" '
+    '"%{X-CI-JOB-URL}i" "%{X-CI-PROJECT-PATH}i" "%{X-REPO-JOB-URL}i" %D'
+)
 
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
@@ -47,11 +51,12 @@ def worker_int(worker):
     id2name = {th.ident: th.name for th in threading.enumerate()}
     code = []
     for threadId, stack in sys._current_frames().items():
-        code.append("\n# Thread: %s(%d)" % (id2name.get(threadId, ""), threadId))
+        thread_name = id2name.get(threadId, "")
+        code.append(f"\n# Thread: {thread_name}({threadId})")
         for filename, lineno, name, line in traceback.extract_stack(stack):
-            code.append('File: "%s", line %d, in %s' % (filename, lineno, name))
+            code.append(f"File: {filename}, line {lineno}, in {name}")
             if line:
-                code.append("  %s" % (line.strip()))
+                code.append(f"  {line.strip()}")
     log.warning("\n".join(code))
 
 

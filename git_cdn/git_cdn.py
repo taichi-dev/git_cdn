@@ -16,7 +16,6 @@ from aiohttp import TCPConnector
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadGateway
 from aiohttp.web_exceptions import HTTPBadRequest
-from aiohttp.web_exceptions import HTTPException
 from aiohttp.web_exceptions import HTTPPermanentRedirect
 from aiohttp.web_exceptions import HTTPUnauthorized
 from structlog import getLogger
@@ -152,6 +151,7 @@ class GitCDN:
         self.router.add_resource("/{path:.+}").add_route("*", self.routing_handler)
         self.proxysession = None
         self.lfs_manager = None
+        self.start_time = None
         self.sema = asyncio.BoundedSemaphore(value=GitCDN.MAX_SEMAPHORE)
         # for tests
         self.app.served_lfs_objects = 0
@@ -461,7 +461,7 @@ class GitCDN:
     def get_sema_count(self):
         if self.sema is not None:
             try:
-                return self.sema._value
+                return self.sema._value  # pylint: disable = protected-access
             except NotImplementedError:
                 return 0
         return 0
@@ -471,7 +471,9 @@ class GitCDN:
         if isinstance(response, (web.Response, web.StreamResponse)):
             output_size = 0
             if hasattr(response, "_payload_writer"):
+                # pylint: disable = protected-access
                 output_size = getattr(response._payload_writer, "output_size", 0)
+                # pylint: enable = protected-access
             if not output_size:
                 output_size = response.content_length
             response_stats = dict(

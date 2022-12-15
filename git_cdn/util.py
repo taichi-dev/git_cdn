@@ -109,12 +109,14 @@ def generate_url(base, path, auth=None):
 def log_proc_if_error(proc: Process, cmd: str):
     if not proc.returncode:
         return
+    # pylint: disable = protected-access
     cmd_stderr = proc.stderr._buffer.decode() if proc.stderr else ""
     try:
         # we might be in the middle of upload-pack so the stdout might be binary
         cmd_stdout = proc.stdout._buffer.decode() if proc.stdout else ""
     except UnicodeDecodeError:
         cmd_stdout = "<binary>"
+    # pylint: enable = protected-access
 
     # Error 128 on upload-pack is a known issue of git upload-pack and shall be ignored on
     # ctx['depth']==True and ctx['done']==False :

@@ -10,6 +10,8 @@ from asyncio import sleep
 # Third Party Libraries
 from git_cdn.lock.aio_lock import lock
 
+# pylint: disable=consider-using-f-string
+
 FILENAME = "competition_file.txt"
 
 
@@ -43,7 +45,7 @@ async def verify():
             buffer += chunk
             await sleep(random.random() / 1000)
     val = buffer[0]
-    assert len(buffer) == val, "length differ {} {} {}".format(len(buffer), val, buffer)
+    assert len(buffer) == val, f"length differ {len(buffer)} {val} {buffer}"
     for i, c in enumerate(buffer):
         assert c == val, "character at position {} differ {:x} != {:x}".format(
             i, c, val

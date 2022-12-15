@@ -23,9 +23,9 @@ log = getLogger()
 cache_cleaner = PackCacheCleaner()
 
 
-async def write_input(proc, input):
+async def write_input(proc, input_data):
     try:
-        proc.stdin.write(input)
+        proc.stdin.write(input_data)
         await proc.stdin.drain()
     except RuntimeError:
         log.exception("exception while writing to upload-pack stdin")
@@ -70,7 +70,7 @@ class UploadPackHandler:
         self.pcache = None
         self.protocol_version = protocol_version
 
-    async def doUploadPack(self, input):
+    async def doUploadPack(self, data):
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
             "--stateless-rpc",
@@ -83,14 +83,14 @@ class UploadPackHandler:
         try:
             if self.pcache:
                 await asyncio.gather(
-                    write_input(proc, input.input),
+                    write_input(proc, data.input),
                     asyncio.shield(
                         self.pcache.cache_pack(proc.stdout.readexactly, self.writer)
                     ),
                 )
             else:
                 await asyncio.gather(
-                    write_input(proc, input.input),
+                    write_input(proc, data.input),
                     self.flush_to_writer(proc.stdout.read),
                 )
         except (asyncio.CancelledError, CancelledError, ConnectionResetError) as e:

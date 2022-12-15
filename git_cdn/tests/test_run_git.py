@@ -4,6 +4,8 @@ import pytest
 
 from git_cdn.repo_cache import RepoCache
 
+# pylint: disable=no-member,unused-argument
+
 
 def run_git_fake(*args, **kwargs):
     return asyncio.create_subprocess_exec(

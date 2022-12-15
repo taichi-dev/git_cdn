@@ -21,7 +21,7 @@ class FileLock:
         return os.stat(self.filename).st_mtime
 
     def lock(self):
-        self._f = open(self.filename, "a+")
+        self._f = open(self.filename, "a+")  # pylint: disable=consider-using-with
         fcntl.flock(self._f.fileno(), fcntl.LOCK_EX)
         os.utime(self.filename, None)
 

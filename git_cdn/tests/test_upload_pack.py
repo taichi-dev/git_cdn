@@ -14,6 +14,8 @@ from git_cdn.upload_pack_input_parser import UploadPackInputParser
 from git_cdn.upload_pack_input_parser_v2 import UploadPackInputParserV2
 from git_cdn.util import generate_url
 
+# pylint: disable=unused-argument, consider-using-f-string
+
 CLONE_INPUT = (
     b"""0098want 4284b1521b200ba4934ee710a4a538549f1f0f97 multi_ack_detailed no-done """
     b"""side-band-64k thin-pack ofs-delta deepen-since deepen-not agent=git/2.15.1

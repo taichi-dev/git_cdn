@@ -13,6 +13,9 @@ import pytest
 
 from git_cdn.lock.aio_lock import lock
 
+# pylint: disable=unused-argument
+
+
 execution = []
 
 
@@ -33,17 +36,17 @@ async def release_promises(*promises):
 
 
 async def locking_coroutine(filename, mode, done, task_id):
-    log("lock requested {}".format(task_id))
+    log(f"lock requested {task_id}")
     try:
         async with lock(filename, mode=mode):
-            log("lock acquired {}".format(task_id))
+            log(f"lock acquired {task_id}")
             await done
-            log("promised finished {}".format(task_id))
+            log(f"promised finished {task_id}")
     except asyncio.CancelledError:
         traceback.print_exc()
-        log("cancelled {}".format(task_id))
+        log(f"cancelled {task_id}")
 
-    log("lock released {}".format(task_id))
+    log(f"lock released {task_id}")
     return 1
 
 
