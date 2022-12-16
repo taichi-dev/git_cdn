@@ -17,6 +17,7 @@ from git_cdn.cache_handler.common import find_bundle
 from git_cdn.cache_handler.common import find_git_repo
 from git_cdn.cache_handler.common import find_lfs
 from git_cdn.cache_handler.common import sizeof_fmt
+from git_cdn.log import before_breadcrumb
 from git_cdn.log import enable_console_logs
 from git_cdn.log import enable_udp_logs
 
@@ -27,20 +28,7 @@ try:
 except PackageNotFoundError:
     GITCDN_VERSION = "unknown"
 
-
-def before_breadcrumb(event, hint):
-    if "log_record" in hint:
-        try:
-            evt = ast.literal_eval(hint["log_record"].message)
-            if "message" in evt:
-                event["message"] = evt["message"]
-            if "extra" in evt:
-                event["data"].update(evt["extra"])
-        except Exception:
-            pass
-    return event
-
-
+# pylint: disable=duplicate-code
 def before_send(event, hint):
     if "log_record" in hint:
         try:
@@ -68,6 +56,7 @@ if sentry_dsn:
         before_send=before_send,
         environment=os.getenv("SENTRY_ENV", "dev"),
     )
+# pylint: enable=duplicate-code
 
 
 def setup_logging(verbose=False):

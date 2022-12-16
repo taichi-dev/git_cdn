@@ -5,7 +5,7 @@ PYTHON?=python3
 PIP:=$(PYTHON) -m pip
 POETRY?=$(PYTHON) -m poetry
 PIP_VERSION:="==22.3.1"
-POETRY_VERSION:="==1.2.2"
+POETRY_VERSION:="==1.3.1"
 
 # poetry enforce semver PEP 440 https://www.python.org/dev/peps/pep-0440/#local-version-identifiers
 # So convert v1.7.1-55-af3454 to v1.7.1+55.af3454
@@ -24,7 +24,7 @@ style: isort black
 dev: poetry-install install
 sc: style checks
 sct: style checks test
-checks: isort-check black-check flake8
+checks: isort-check black-check flake8 pylint
 
 poetry-install:
 	@$(PIP) install $(PIP_INSTALL_OPT) --upgrade "pip$(PIP_VERSION)" "poetry$(POETRY_VERSION)"
@@ -64,7 +64,7 @@ flake8:
 	$(POETRY) run flake8 --config .flake8 $(MODULE)
 
 pylint:
-	@$(POETRY) run pylint --rcfile=.pylintrc --output-format=colorized $(MODULE)
+	@$(POETRY) run pylint --rcfile=.pylintrc.toml --output-format=colorized $(MODULE)
 
 set-version:
 	$(POETRY) version $(GITCDN_VERSION)$(GITCDN_LOCALCHANGE)

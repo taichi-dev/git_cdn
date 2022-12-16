@@ -10,7 +10,7 @@ log = getLogger()
 def to_packet(data, channel=None):
     chan = bytes([channel]) if channel else b""
     size = 4 + len(chan) + len(data)
-    header = "{:04x}".format(size).encode()
+    header = f"{size:04x}".encode()
     return header + chan + data
 
 
@@ -43,9 +43,9 @@ RESPONSE_END_PKT = __ResponseEndPkt()
 class PacketLineParser:
     """a packet line parser inplemented as an iterator"""
 
-    def __init__(self, input):
-        assert isinstance(input, bytes)
-        self.input = input
+    def __init__(self, data):
+        assert isinstance(data, bytes)
+        self.input = data
         self.i = 0
 
     def __iter__(self):
@@ -66,7 +66,7 @@ class PacketLineParser:
 
         if self.i + length > len(self.input):
             raise ValueError(
-                "at {} pkt line length {} goes outside buffer".format(self.i, length)
+                f"at {self.i} pkt line length {length} goes outside buffer"
             )
 
         payload = self.input[self.i + 4 : self.i + length]

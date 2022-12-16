@@ -1,12 +1,10 @@
 # Standard Library
-import asyncio
-import functools
+import ast
 import logging
 import socket
 import sys
 import traceback
 import uuid
-from inspect import iscoroutine
 from logging.handlers import DatagramHandler
 from time import sleep
 
@@ -23,6 +21,21 @@ from git_cdn.util import object_module_name
 
 g_version = "unknown"
 g_host = socket.gethostname()
+
+# pylint: disable=unused-argument
+
+
+def before_breadcrumb(event, hint):
+    if "log_record" in hint:
+        try:
+            evt = ast.literal_eval(hint["log_record"].message)
+            if "message" in evt:
+                event["message"] = evt["message"]
+            if "extra" in evt:
+                event["data"].update(evt["extra"])
+        except Exception:
+            pass
+    return event
 
 
 # Move all event_dict fields into extra, and rename event to message for vector.dev
@@ -73,8 +86,8 @@ def wait_host_resolve(host):
         except socket.gaierror:
             sleep(1)
             # logger is not ready yet, so use print
-            print("logging host {} not found, retrying".format(host))
-    raise HostUnreachable("logging host {} not found".format(host))
+            print(f"logging host {host} not found, retrying")
+    raise HostUnreachable(f"logging host {host} not found")
 
 
 class UdpJsonHandler(DatagramHandler):

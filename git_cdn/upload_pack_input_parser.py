@@ -55,9 +55,9 @@ class UploadPackInputParser:
     have_list         =  *PKT-LINE("have" SP id LF)
     """
 
-    def __init__(self, input):
-        assert isinstance(input, bytes)
-        self.input = input
+    def __init__(self, data):
+        assert isinstance(data, bytes)
+        self.input = data
         self.wants = set()
         self.haves = set()
         self.caps = {}
@@ -67,26 +67,26 @@ class UploadPackInputParser:
         self.parse_error = True
         self.filter = False
         try:
-            self.parser = iter(PacketLineParser(input))
+            self.parser = iter(PacketLineParser(data))
             self.parse_header()
             self.parse_lists()
             if b"filter" in self.caps:
                 self.filter = True
-            hash = hashlib.sha256()
-            hash.update(b"caps")
+            computed_hash = hashlib.sha256()
+            computed_hash.update(b"caps")
             for i in sorted(self.caps):
-                hash.update(i)
-            hash.update(b"haves")
+                computed_hash.update(i)
+            computed_hash.update(b"haves")
             for i in sorted(self.haves):
-                hash.update(i)
-            hash.update(b"wants")
+                computed_hash.update(i)
+            computed_hash.update(b"wants")
             for i in sorted(self.wants):
-                hash.update(i)
+                computed_hash.update(i)
             for i in sorted(self.depth_lines):
-                hash.update(i)
+                computed_hash.update(i)
             if self.done:
-                hash.update(b"done")
-            self.hash = hash.hexdigest()
+                computed_hash.update(b"done")
+            self.hash = computed_hash.hexdigest()
             self.as_dict = {
                 # decoded data to be stored in logstash for analysis
                 "haves": b" ".join([x[:8] for x in self.haves]).decode(),
@@ -106,11 +106,11 @@ class UploadPackInputParser:
             self.parse_error = False
         except Exception:
             # if we get any error on parsing, we don't fail the rest
-            log.exception("while parsing input", bad_input=input.decode())
+            log.exception("while parsing input", bad_input=data.decode())
             self.hash = str(uuid.uuid4())  # get random hash to avoid cashing
             self.parse_error = True
             self.as_dict = {
-                "input": input.decode(),
+                "input": data.decode(),
                 "parse_error": True,
                 "hash": self.hash[:5],
             }
@@ -156,6 +156,7 @@ class UploadPackInputParser:
         return int(self.hash, 16)
 
     def __repr__(self):
+        # pylint: disable=consider-using-f-string
         return "UploadPackInput(wants=[{}], haves=[{}], caps={}, hash='{}', depth={})".format(
             ",".join(self.wants),
             ",".join(self.haves),
@@ -163,6 +164,7 @@ class UploadPackInputParser:
             self.hash,
             self.depth,
         )
+        # pylint: enable=consider-using-f-string
 
     def can_be_cached(self):
         """
@@ -171,6 +173,7 @@ class UploadPackInputParser:
         fetches (with haves > 0) won't benefit from a cache.
         also only cache if self.done=True
         """
+        # pylint: disable=duplicate-code
         if len(self.haves) != 0 or not self.done:
             return False
         if b"side-band" not in self.caps and b"side-band-64k" not in self.caps:
@@ -184,3 +187,4 @@ class UploadPackInputParser:
         if not depth and self.depth:
             return False
         return True
+        # pylint: enable=duplicate-code

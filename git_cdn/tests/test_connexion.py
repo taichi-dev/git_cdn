@@ -7,11 +7,12 @@ from aiohttp.helpers import BasicAuth
 from aiohttp.web_exceptions import HTTPBadGateway
 from aiohttp.web_exceptions import HTTPBadRequest
 from aiohttp.web_exceptions import HTTPPermanentRedirect
-from aiohttp.web_exceptions import HTTPUnauthorized
 
 from git_cdn.client_session import ClientSessionWithRetry
 from git_cdn.conftest import CREDS
 from git_cdn.conftest import MANIFEST_PATH
+
+# pylint: disable=redefined-outer-name,unused-argument
 
 
 @pytest.mark.asyncio
@@ -55,11 +56,11 @@ async def test_proxy_retry_answer_issue(make_client, cdn_event_loop, app, mocker
 
         if called == 1:
             raise aiohttp.ClientConnectionError()
-        else:
-            session.request = old_request
-            mock_request = mocker.AsyncMock()
-            mock_request.status = 500
-            return mock_request
+
+        session.request = old_request
+        mock_request = mocker.AsyncMock()
+        mock_request.status = 500
+        return mock_request
 
     session.request = side_effect
 
@@ -154,10 +155,11 @@ async def test_exception(
     def side_effect(*args, **kwargs):
         nonlocal called
         called += 1
+
         if http_ex is HTTPPermanentRedirect:
             raise HTTPPermanentRedirect(location="titi")
-        else:
-            raise http_ex()
+
+        raise http_ex()
 
     session.request = side_effect
 

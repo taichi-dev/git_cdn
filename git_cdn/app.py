@@ -14,22 +14,11 @@ from structlog.contextvars import get_contextvars
 from structlog.threadlocal import get_threadlocal
 
 from git_cdn.git_cdn import GitCDN
+from git_cdn.log import before_breadcrumb
 from git_cdn.util import GITCDN_VERSION
 
 
-def before_breadcrumb(event, hint):
-    if "log_record" in hint:
-        try:
-            evt = ast.literal_eval(hint["log_record"].message)
-            if "message" in evt:
-                event["message"] = evt["message"]
-            if "extra" in evt:
-                event["data"].update(evt["extra"])
-        except Exception:
-            pass
-    return event
-
-
+# pylint: disable=duplicate-code
 def before_send(event, hint):
     if "log_record" in hint:
         try:
@@ -63,6 +52,7 @@ if sentry_dsn:
         before_send=before_send,
         environment=os.getenv("SENTRY_ENV", "dev"),
     )
+# pylint: enable=duplicate-code
 
 
 log = getLogger()
@@ -70,9 +60,9 @@ helpers.netrc_from_env = lambda: None
 
 
 def make_app(upstream):
-    app = web.Application()
-    GitCDN(upstream, app, app.router)
-    return app
+    _app = web.Application()
+    GitCDN(upstream, _app, _app.router)
+    return _app
 
 
 if os.getenv("GITSERVER_UPSTREAM") and os.getenv("WORKING_DIRECTORY"):

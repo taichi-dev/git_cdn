@@ -33,9 +33,9 @@ checks:
         - make check
     parallel:
         matrix:
-            - IMAGE : 
-                - python:3.9
+            - IMAGE :
                 - python:3.10
+                - python:3.11
 
 build:
     extends: .only
@@ -72,9 +72,9 @@ tests:
         - make test
     parallel:
         matrix:
-            - IMAGE : 
-                - python:3.9
+            - IMAGE :
                 - python:3.10
+                - python:3.11
 
 markdownlint:
     stage: test
@@ -161,7 +161,7 @@ pages:
 
 publish_docker:
     extends: .only
-    image: docker:19.03.8
+    image: docker:20.10.12
     stage: publish
     only:
         <<: *only_changes
@@ -169,7 +169,7 @@ publish_docker:
             - master
             - tags
     services:
-        - docker:19.03.8-dind
+        - docker:20.10.12-dind
     script:
         - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
         - docker pull $CI_REGISTRY/$CI_PROJECT_PATH:i-$CI_COMMIT_SHA-$CI_PIPELINE_ID

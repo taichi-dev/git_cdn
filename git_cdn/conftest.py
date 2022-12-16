@@ -12,6 +12,8 @@ import yarl
 import git_cdn.util
 from git_cdn import app as git_cdn_app
 
+# pylint: disable=unused-argument,redefined-outer-name,consider-using-f-string,protected-access
+
 GITLAB_REPO_TEST_GROUP = os.getenv("GITLAB_REPO_TEST_GROUP", "grouperenault/repo_test")
 GITSERVER_UPSTREAM = os.getenv("GITSERVER_UPSTREAM", "https://gitlab.com/")
 MANIFEST_PATH = f"{GITLAB_REPO_TEST_GROUP}/test_git_cdn.git"
@@ -34,7 +36,8 @@ def cdn_event_loop(request):
     if request.param is asyncio:
         loop = asyncio.new_event_loop()
         # FastChildWatcher is failing our tests with following exception
-        # RuntimeError: asyncio.get_child_watcher() is not activated, subprocess support is not installed.
+        # RuntimeError: asyncio.get_child_watcher() is not activated,
+        #   subprocess support is not installed.
         # Maybe because FastChildWatcher requires a running event loop in the main thread to work
         asyncio.set_child_watcher(asyncio.ThreadedChildWatcher())
 
@@ -95,7 +98,7 @@ def make_client(aiohttp_client):
     async def ret(app, creds=CREDS):
         if "UNDER_TEST_APP" not in os.environ:
             c = await aiohttp_client(app)
-            c.baseurl = "http://{}@localhost:{}".format(creds, c._server.port)
+            c.baseurl = f"http://{creds}@localhost:{c._server.port}"
             return c
         return FakeClient(os.environ["UNDER_TEST_APP"], creds)
 

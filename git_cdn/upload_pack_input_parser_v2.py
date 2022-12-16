@@ -69,9 +69,9 @@ class UploadPackInputParserV2:
     class InputParserError(Exception):
         pass
 
-    def __init__(self, input):
-        assert isinstance(input, bytes)
-        self.input = input
+    def __init__(self, input_data):
+        assert isinstance(input_data, bytes)
+        self.input = input_data
         self.command = b""
         self.caps = {}
 
@@ -86,7 +86,7 @@ class UploadPackInputParserV2:
 
         self.parse_error = True
         try:
-            self.parser = iter(PacketLineParser(input))
+            self.parser = iter(PacketLineParser(input_data))
             self.parse_caps()
 
             if self.command == b"":
@@ -102,7 +102,7 @@ class UploadPackInputParserV2:
             self.parse_args()
 
             # make sure that the FLUSH_PKT has been found at the end of the input
-            if self.parser.i != len(input):
+            if self.parser.i != len(input_data):
                 raise self.InputParserError(
                     "Parser not empty when ending flush packet occured"
                 )
@@ -131,34 +131,36 @@ class UploadPackInputParserV2:
             self.parse_error = False
         except Exception:
             # if we get any error on parsing, we don't fail the rest
-            log.exception("while parsing input", bad_input=input.decode())
+            log.exception("while parsing input", bad_input=input_data.decode())
             self.hash = str(uuid.uuid4())  # get random hash to avoid cashing
             self.parse_error = True
             self.as_dict = {
-                "input": input.decode(),
+                "input": input_data.decode(),
                 "parse_error": True,
                 "hash": self.hash[:5],
             }
 
     def hash_update(self):
-        hash = hashlib.sha256()
-        hash.update(b"caps")
+        # pylint: disable=duplicate-code
+        computed_hash = hashlib.sha256()
+        computed_hash.update(b"caps")
         for i in sorted(self.caps):
-            hash.update(i)
-        hash.update(b"haves")
+            computed_hash.update(i)
+        computed_hash.update(b"haves")
         for i in sorted(self.haves):
-            hash.update(i)
-        hash.update(b"wants")
+            computed_hash.update(i)
+        computed_hash.update(b"wants")
         for i in sorted(self.wants):
-            hash.update(i)
-        hash.update(b"args")
+            computed_hash.update(i)
+        computed_hash.update(b"args")
         for i in sorted(self.args):
-            hash.update(i)
+            computed_hash.update(i)
         for i in sorted(self.depth_lines):
-            hash.update(i)
+            computed_hash.update(i)
         if self.done:
-            hash.update(b"done")
-        self.hash = hash.hexdigest()
+            computed_hash.update(b"done")
+        self.hash = computed_hash.hexdigest()
+        # pylint: enable=duplicate-code
 
     def parse_caps(self):
         self.caps = {}
@@ -190,10 +192,9 @@ class UploadPackInputParserV2:
             # even if it is not documented like that
             if k == b"command":
                 if self.command != b"":
+                    cmd_decoded = self.command.decode()
                     raise self.InputParserError(
-                        "Found two commands ({} and {}) instead of one".format(
-                            self.command.decode(), v.decode()
-                        )
+                        f"Found two commands ({cmd_decoded} and {v.decode()}) instead of one"
                     )
                 self.command = v
             else:
@@ -240,20 +241,19 @@ class UploadPackInputParserV2:
 
     def __repr__(self):
         if self.command in (b"", None):
-            return "UploadPackInputV2(command={})".format(self.command)
+            return f"UploadPackInputV2(command={self.command})"
+
+        caps = b",".join(k + b":" + v for k, v in self.caps.items()).decode()
+
         if self.command in PROXY_COMMANDS:
-            return "UploadPackInputV2(command={}, caps={})".format(
-                self.command,
-                ",".join(k + ":" + v for k, v in self.caps.items()),
-            )
-        return "UploadPackInputV2(command={}, caps={}, hash='{}', haves=[{}], wants=[{}], args={}, depth={})".format(
-            self.command,
-            b",".join(k + b":" + v for k, v in self.caps.items()).decode(),
-            self.hash,
-            ",".join(self.haves),
-            b",".join([w for w in self.wants]).decode(),
-            ",".join(k.decode() + ":" + str(v) for k, v in self.args.items()),
-            self.depth,
+            return f"UploadPackInputV2(command={self.command}, caps={caps})"
+
+        haves = ",".join(self.haves)
+        wants = (b",".join(list(self.wants)).decode(),)
+        args = ",".join(k.decode() + ":" + str(v) for k, v in self.args.items())
+        return (
+            f"UploadPackInputV2(command={self.command,}, caps={caps}, hash='{self.hash}', "
+            f"haves=[{haves}], wants=[{wants}], args={args}, depth={self.depth})"
         )
 
     def can_be_cached(self):
@@ -263,6 +263,7 @@ class UploadPackInputParserV2:
         fetches (with haves > 0) won't benefit from a cache.
         also only cache if self.done=True
         """
+        # pylint: disable=duplicate-code
         if len(self.haves) != 0 or not self.done:
             return False
         if self.filter:
@@ -274,3 +275,4 @@ class UploadPackInputParserV2:
         if not depth and self.depth:
             return False
         return True
+        # pylint: enable=duplicate-code

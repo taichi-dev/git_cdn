@@ -8,6 +8,8 @@ import git_cdn.util
 from git_cdn.clone_bundle_manager import CloneBundleManager
 from git_cdn.clone_bundle_manager import close_bundle_session
 
+# pylint: disable=redefined-outer-name,unused-argument,consider-using-f-string
+
 
 async def previous(request):
     if request.method == "POST":

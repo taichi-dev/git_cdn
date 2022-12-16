@@ -11,6 +11,8 @@ from git_cdn.pack_cache import PackCacheCleaner
 from git_cdn.tests.test_packet_line import DataReader
 from git_cdn.tests.test_upload_pack import FakeStreamWriter
 
+# pylint: disable=unused-argument,redefined-builtin
+
 
 def get_data(filename):
     with open(os.path.join(os.path.dirname(__file__), "packs", filename), "rb") as f:

@@ -13,6 +13,8 @@ from .any import ANYBOOL
 from .any import ANYINT
 from .any import ANYSTRING
 
+# pylint: disable = duplicate-code,redefined-outer-name
+
 BASE_INPUT = (
     b"00a4want 7bc80fd0ada7602695c7819e0105431e3262ad0c multi_ack_detailed "
     b"no-done side-band-64k thin-pack no-progress ofs-delta deepen-since "
@@ -157,14 +159,14 @@ def test_parse_upload_pack_all_input(upload_pack_inputs):
 
 
 def test_parse_upload_pack_input_error():
-    input = BASE_INPUT.replace(b"00a4", b"01a4")
-    parser = UploadPackInputParser(input)
+    data = BASE_INPUT.replace(b"00a4", b"01a4")
+    parser = UploadPackInputParser(data)
     assert parser.wants == set()
     assert parser.haves == set()
-    assert parser.caps == {}
+    assert not parser.caps
     assert parser.as_dict == {
         "parse_error": True,
-        "input": input.decode(),
+        "input": data.decode(),
         "hash": ANYSTRING,
     }
 

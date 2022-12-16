@@ -7,7 +7,6 @@ from concurrent.futures import CancelledError
 from aiohttp.web_exceptions import HTTPInternalServerError
 from aiohttp.web_exceptions import HTTPUnauthorized
 from structlog import getLogger
-from structlog.contextvars import bind_contextvars
 
 from git_cdn.lock.aio_lock import lock
 from git_cdn.log import bind_context_from_exp
@@ -173,7 +172,7 @@ class RepoCache:
         )
         try:
             refs_str = b"\n".join(refs) + b"\n"
-            stdout, stderr = await proc.communicate(refs_str)
+            stdout, _ = await proc.communicate(refs_str)
         except Exception as e:
             bind_context_from_exp(e)
             log.exception("cat-file failure")

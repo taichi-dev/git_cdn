@@ -1,10 +1,7 @@
 # Standard Library
-import asyncio
-import fcntl
 import gzip
 import hashlib
 import json
-import os
 from copy import deepcopy
 
 # Third Party Libraries
@@ -15,7 +12,8 @@ from aiohttp.web_exceptions import HTTPNotFound
 
 from git_cdn.lfs_cache_manager import LFSCacheFile
 from git_cdn.lfs_cache_manager import LFSCacheManager
-from git_cdn.lock.aio_lock import lock
+
+# pylint: disable=unused-argument,protected-access,redefined-outer-name
 
 
 @pytest_asyncio.fixture

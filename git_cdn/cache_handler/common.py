@@ -15,11 +15,13 @@ log = getLogger()
 
 
 def sizeof_fmt(num, suffix="B"):
+    # pylint: disable=consider-using-f-string
     for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, "Yi", suffix)
+    # pylint: enable=consider-using-f-string
 
 
 # using scandir recursively is faster than using os.walk()
@@ -28,7 +30,7 @@ def dir_size(directory):
     for entry in os.scandir(directory):
         if entry.is_symlink():
             continue
-        elif entry.is_dir():
+        if entry.is_dir():
             size += dir_size(entry.path)
         elif entry.is_file():
             size += entry.stat().st_size
@@ -36,10 +38,10 @@ def dir_size(directory):
 
 
 class BasePrune(ABC):
-    def __init__(self, input) -> None:
+    def __init__(self, target) -> None:
         super().__init__()
-        self.file = input
-        self.path = input.path
+        self.file = target
+        self.path = target.path
         self._mtime = None
         self._size = None
 

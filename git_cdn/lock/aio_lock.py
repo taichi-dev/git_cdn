@@ -130,7 +130,7 @@ class FLock:
 
     def _try_acquire_idle(self, mode):
         assert self.f is None
-        self.f = open(self.filename, "a+")
+        self.f = open(self.filename, "a+")  # pylint: disable=consider-using-with
         try:
             # First try fast lock
             fcntl.flock(self.f.fileno(), mode | fcntl.LOCK_NB)
@@ -217,7 +217,7 @@ class FLock:
             # not the last process holding, don't remove the file
             pass
 
-    def release(self, mode):
+    def release(self, mode):  # pylint: disable=unused-argument
         assert self.state in (S.ACQUIRED_EX, S.ACQUIRED_SH)
         self.lock_holder_num -= 1
         if self.lock_holder_num:
@@ -267,11 +267,11 @@ def lock(filename, mode=fcntl.LOCK_EX) -> Lock:
 
 class AsyncIOLockManager(LockManager):
     def make_lock(self, filename):
-        lock = asyncio.Lock()
+        _lock = asyncio.Lock()
 
         class FakeLock:
-            def lock(self, mode):
-                return lock
+            def lock(self, mode):  # pylint: disable=unused-argument
+                return _lock
 
         return FakeLock()
 

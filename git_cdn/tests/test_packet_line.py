@@ -10,6 +10,8 @@ from git_cdn.packet_line import RESPONSE_END_PKT
 from git_cdn.packet_line import PacketLineChunkParser
 from git_cdn.packet_line import PacketLineParser
 
+# pylint: disable=redefined-outer-name
+
 BASE_INPUT = (
     b"00a4want 7bc80fd0ada7602695c7819e0105431e3262ad0c multi_ack_detailed "
     b"no-done side-band-64k thin-pack no-progress ofs-delta deepen-since "
@@ -52,9 +54,9 @@ def test_parse_pkt_line_with_ls_refs():
     ],
 )
 def test_parse_pkt_line_bad_length_1(bad_length):
-    input = BASE_INPUT.replace(b"00a4", bad_length)
+    data = BASE_INPUT.replace(b"00a4", bad_length)
     with pytest.raises(ValueError):
-        list(PacketLineParser(input))
+        list(PacketLineParser(data))
 
 
 @pytest.mark.parametrize(
@@ -65,9 +67,9 @@ def test_parse_pkt_line_bad_length_1(bad_length):
     ],
 )
 def test_parse_pkt_line_bad_length_2(bad_length):
-    input = INPUT_LS_REFS.replace(b"0014", bad_length)
+    data = INPUT_LS_REFS.replace(b"0014", bad_length)
     with pytest.raises(ValueError):
-        list(PacketLineParser(input))
+        list(PacketLineParser(data))
 
 
 def get_data(filename):
