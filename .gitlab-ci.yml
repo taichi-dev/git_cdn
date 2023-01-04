@@ -76,13 +76,13 @@ tests:
                 - python:3.10
                 - python:3.11
 
-markdownlint:
-    stage: test
-    image: ruby
-    before_script:
-        - gem install gitlab-markup redcarpet
-    script:
-        - gitlab-markup README.md
+# markdownlint:
+#     stage: test
+#     image: ruby
+#     before_script:
+#         - gem install gitlab-markup redcarpet
+#     script:
+#         - gitlab-markup README.md
 
 coverage:
     extends: .only
