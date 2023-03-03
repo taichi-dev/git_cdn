@@ -13,7 +13,7 @@ from aiohttp.web_exceptions import HTTPNotFound
 from git_cdn.lfs_cache_manager import LFSCacheFile
 from git_cdn.lfs_cache_manager import LFSCacheManager
 
-# pylint: disable=unused-argument,protected-access,redefined-outer-name
+# pylint: disable=unused-argument,protected-access,redefined-outer-name,broad-exception-raised
 
 
 @pytest_asyncio.fixture

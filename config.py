@@ -39,6 +39,7 @@ log.setLevel(logging.DEBUG)
 # when the child process is already finished, so using FastChildWatcher to ignore this issue
 asyncio.set_child_watcher(asyncio.FastChildWatcher())
 
+
 # Add logs when workers are killed
 def worker_int(worker):
     log.error("worker received INT or QUIT signal")
