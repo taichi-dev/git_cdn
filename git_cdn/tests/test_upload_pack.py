@@ -281,7 +281,7 @@ async def test_missing_want(tmpdir, cdn_event_loop, ref, missing_ref):
     proc.rcache = RepoCache(proc.path, proc.auth, proc.upstream)
 
     await proc.rcache.update()
-    assert (await proc.missing_want(ref)) == missing_ref
+    assert (await proc._missing_want(ref)) == missing_ref
 
 
 @pytest.mark.asyncio
@@ -310,10 +310,10 @@ async def test_ensure_input_wants_in_rcache(tmpdir, cdn_event_loop, mocker):
     )
 
     assert proc.rcache.exists()
-    mock_missing_want = mocker.patch.object(proc, "missing_want")
+    mock_missing_want = mocker.patch.object(proc, "_missing_want")
     mock_update = mocker.patch.object(proc.rcache, "update")
 
-    await proc.ensure_input_wants_in_rcache(wants)
+    await proc._ensure_input_wants_in_rcache(wants)
     mock_missing_want.assert_called_once()
     mock_update.assert_called_once()
 
@@ -321,7 +321,7 @@ async def test_ensure_input_wants_in_rcache(tmpdir, cdn_event_loop, mocker):
 @pytest.mark.asyncio
 async def test_unknown_want_cache(tmpdir, cdn_event_loop, mocker):
     """tests that the 'uploadPack' method runs well
-    when running 'execute' method with a repo with missing 'wants'
+    when running '_execute' method with a repo with missing 'wants'
     """
     parsed_input = UploadPackInputParserV2(INPUT_FETCH)
 
@@ -344,7 +344,7 @@ async def test_unknown_want_cache(tmpdir, cdn_event_loop, mocker):
     )
     assert proc.rcache.exists()
     try:
-        await proc.execute(parsed_input)
+        await proc._execute(parsed_input)
     except Exception:
         assert False
     assert True
