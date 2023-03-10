@@ -94,7 +94,8 @@ class PackCache:
                     log.error("Exiting on unfinished pack cache read")
                 raise
             finally:
-                bind_contextvars(complete_send_pack=(self.size() == count))
+                is_complete = self.size() == count
+                bind_contextvars(complete_send_pack=is_complete)
 
         # update mtime for LRU
         os.utime(self.filename, None)

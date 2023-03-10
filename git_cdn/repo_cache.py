@@ -24,7 +24,6 @@ PROGRESS_OPTION = os.getenv("GIT_PROGRESS_OPTION", "--progress")
 
 
 async def exec_git(*args):
-
     return await asyncio.create_subprocess_exec(
         "git",
         *args,

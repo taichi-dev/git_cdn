@@ -121,7 +121,6 @@ class FLock:
         return f
 
     def _acquired(self, mode):
-
         if mode == fcntl.LOCK_EX:
             self.state = S.ACQUIRED_EX
         else:

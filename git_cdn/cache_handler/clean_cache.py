@@ -28,6 +28,7 @@ try:
 except PackageNotFoundError:
     GITCDN_VERSION = "unknown"
 
+
 # pylint: disable=duplicate-code
 def before_send(event, hint):
     if "log_record" in hint:

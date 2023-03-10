@@ -476,10 +476,10 @@ class GitCDN:
                 # pylint: enable = protected-access
             if not output_size:
                 output_size = response.content_length
-            response_stats = dict(
-                response_size=output_size,
-                response_status=getattr(response, "status", 500),
-            )
+            response_stats = {
+                "response_size": output_size,
+                "response_status": getattr(response, "status", 500),
+            }
         if isinstance(response, BaseException):
             e = response
             response_stats["exception"] = "".join(

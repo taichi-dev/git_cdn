@@ -70,7 +70,7 @@ class UploadPackHandler:
         self.pcache = None
         self.protocol_version = protocol_version
 
-    async def doUploadPack(self, data):
+    async def _do_upload_pack(self, data):
         proc = await asyncio.create_subprocess_exec(
             "git-upload-pack",
             "--stateless-rpc",
@@ -91,7 +91,7 @@ class UploadPackHandler:
             else:
                 await asyncio.gather(
                     write_input(proc, data.input),
-                    self.flush_to_writer(proc.stdout.read),
+                    self._flush_to_writer(proc.stdout.read),
                 )
         except (asyncio.CancelledError, CancelledError, ConnectionResetError) as e:
             bind_context_from_exp(e)
@@ -112,16 +112,16 @@ class UploadPackHandler:
                     upload_pack_returncode=proc.returncode,
                     reason=error_message,
                 )
-                await self.write_pack_error(error_message.decode())
+                await self._write_pack_error(error_message.decode())
 
             log.debug("Upload pack done", pid=proc.pid)
 
-    async def write_pack_error(self, error: str):
+    async def _write_pack_error(self, error: str):
         log.error("Upload pack, sending error to client", pack_error=error)
         pkt = to_packet(("ERR " + error).encode())
         await self.writer.write(pkt)
 
-    async def flush_to_writer(self, read_func):
+    async def _flush_to_writer(self, read_func):
         CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 32 * 1024))
         while True:
             chunk = await read_func(CHUNK_SIZE)
@@ -129,7 +129,7 @@ class UploadPackHandler:
                 break
             await self.writer.write(chunk)
 
-    async def run_with_cache(self, parsed_input):
+    async def _run_with_cache(self, parsed_input):
         self.pcache = PackCache(parsed_input.hash)
         async with self.pcache.read_lock():
             if self.pcache.exists():
@@ -139,7 +139,7 @@ class UploadPackHandler:
         async with self.pcache.write_lock():
             # In case 2 threads race for write lock, check again if it has been added in the cache
             if not self.pcache.exists():
-                await self.execute(parsed_input)
+                await self._execute(parsed_input)
 
         async with self.pcache.read_lock():
             if self.pcache.exists():
@@ -156,40 +156,22 @@ class UploadPackHandler:
             # look logs with with the corresponding hash
             raise RuntimeError("Run with cache failed")
 
-    async def run(self, parsed_input):
-        """Run the whole process of upload pack, including sending the result to the writer"""
-        dict_input = parsed_input.as_dict.copy()
-        log.debug("parsed input", input_details=dict_input)
-        input_to_ctx(dict_input)
-        if parsed_input.parse_error:
-            await self.write_pack_error(
-                f"Wrong upload pack input: {parsed_input.input[:128]}"
-            )
-            return
-        if not parsed_input.wants:
-            log.warning("Request without wants")
-            return
-        if parsed_input.can_be_cached():
-            await self.run_with_cache(parsed_input)
-        else:
-            await self.execute(parsed_input)
-
-    async def uploadPack(self, parsed_input):
+    async def _upload_pack(self, parsed_input):
         async with self.rcache.read_lock():
             if self.rcache.exists():
                 if not self.sema:
-                    await self.doUploadPack(parsed_input)
+                    await self._do_upload_pack(parsed_input)
                 else:
                     start_wait = time()
                     async with self.sema:
                         start_upload_pack = time()
                         bind_contextvars(sema_wait=start_upload_pack - start_wait)
-                        await self.doUploadPack(parsed_input)
+                        await self._do_upload_pack(parsed_input)
                         bind_contextvars(
                             upload_pack_duration=time() - start_upload_pack
                         )
 
-    async def missing_want(self, wants):
+    async def _missing_want(self, wants):
         """Return True if at least one sha1 in 'wants' is missing in self.rcache"""
         try:
             stdout = await self.rcache.cat_file(wants)
@@ -201,7 +183,7 @@ class UploadPackHandler:
 
         return b"missing" in stdout
 
-    async def ensure_input_wants_in_rcache(self, wants):
+    async def _ensure_input_wants_in_rcache(self, wants):
         """Checks if all 'wants' are in rcache
         and updates rcache if that is not the case
         """
@@ -211,17 +193,35 @@ class UploadPackHandler:
         else:
             not_our_refs = True
             async with self.rcache.read_lock():
-                not_our_refs = await self.missing_want(wants)
+                not_our_refs = await self._missing_want(wants)
 
             if not_our_refs:
                 log.debug("not our refs, fetching")
                 await self.rcache.update()
 
-    async def execute(self, parsed_input):
+    async def _execute(self, parsed_input):
         """Runs git upload-pack
         after being insure that all 'wants' are in cache
         """
         self.rcache = RepoCache(self.path, self.auth, self.upstream)
 
-        await self.ensure_input_wants_in_rcache(parsed_input.wants)
-        await self.uploadPack(parsed_input)
+        await self._ensure_input_wants_in_rcache(parsed_input.wants)
+        await self._upload_pack(parsed_input)
+
+    async def run(self, parsed_input):
+        """Run the whole process of upload pack, including sending the result to the writer"""
+        dict_input = parsed_input.as_dict.copy()
+        log.debug("parsed input", input_details=dict_input)
+        input_to_ctx(dict_input)
+        if parsed_input.parse_error:
+            await self._write_pack_error(
+                f"Wrong upload pack input: {parsed_input.input[:128]}"
+            )
+            return
+        if not parsed_input.wants:
+            log.warning("Request without wants")
+            return
+        if parsed_input.can_be_cached():
+            await self._run_with_cache(parsed_input)
+        else:
+            await self._execute(parsed_input)
