@@ -82,12 +82,13 @@ class RepoCache:
         finally:
             await ensure_proc_terminated(git_proc, str(args))
             # prevent logging of the creds
-            stdout_data = stdout_data.replace(
-                self.auth.encode(), self.auth.encode()[:2] + b"<XX>"
-            )
-            stderr_data = stderr_data.replace(
-                self.auth.encode(), self.auth.encode()[:2] + b"<XX>"
-            )
+            if self.auth:
+                stdout_data = stdout_data.replace(
+                    self.auth.encode(), self.auth.encode()[:2] + b"<XX>"
+                )
+                stderr_data = stderr_data.replace(
+                    self.auth.encode(), self.auth.encode()[:2] + b"<XX>"
+                )
             if b"HTTP Basic: Access denied" in stderr_data:
                 raise HTTPUnauthorized(reason=stderr_data)
 

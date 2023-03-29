@@ -17,7 +17,6 @@ from aiohttp import web
 from aiohttp.web_exceptions import HTTPBadGateway
 from aiohttp.web_exceptions import HTTPBadRequest
 from aiohttp.web_exceptions import HTTPPermanentRedirect
-from aiohttp.web_exceptions import HTTPUnauthorized
 from structlog import getLogger
 from structlog.contextvars import bind_contextvars
 from structlog.contextvars import clear_contextvars
@@ -70,7 +69,7 @@ def fix_headers(headers):
             del headers[header]
 
 
-def check_auth(request):
+def check_redirect(request):
     """This method provides a quick way to redirect to correct path and force
     git to authenticate"""
     spl = request.path_qs.split("/")
@@ -83,8 +82,6 @@ def check_auth(request):
         ):
             spl[i - 1] += ".git"
             raise HTTPPermanentRedirect("/".join(spl))
-    if request.headers.get("Authorization") is None:
-        raise HTTPUnauthorized(headers={"WWW-Authenticate": 'Basic realm="Git Proxy"'})
 
 
 def redirect_browsers(request, upstream):
@@ -253,7 +250,7 @@ class GitCDN:
 
         extract_headers_to_context(request.headers)
         h = dict(request.headers)
-        hide_auth_on_headers(h)
+        # hide_auth_on_headers(h)
         log.debug(
             "handling response",
             request_path=request.path,
@@ -271,8 +268,7 @@ class GitCDN:
             return await cbm.handle_clone_bundle(request)
 
         redirect_browsers(request, self.upstream)
-        # FIXME: check_auth maybe implementable via middleware
-        check_auth(request)
+        check_redirect(request)
 
         protocol_version = 1
         git_protocol = h.get("Git-Protocol")
@@ -372,6 +368,11 @@ class GitCDN:
                 if response.status < 400:
                     return await self.stream_response(request, response)
 
+                if response.status == 401:
+                    headers = response.headers.copy()
+                    headers.pop('Content-Length', None)
+                    return web.Response(status=401, headers=headers)
+
                 error_text, error_code = resp_error, response.status
         except aiohttp.ClientConnectionError as e:
             raise HTTPBadGateway(text="upstream connection error") from e
@@ -416,8 +417,11 @@ class GitCDN:
             # (forwarding the BasicAuth as well) to check repo existence and credentials
             # previously we used a '/HEAD' request, but gitlab do not support it anymore.
             upstream_url = self.upstream + path + "/info/refs?service=git-upload-pack"
-            auth = request.headers["Authorization"]
-            headers = {"Authorization": auth}
+            headers = {}
+            auth = request.headers.get("Authorization")
+            if auth:
+                headers["Authorization"] = auth
+
             async with ClientSessionWithRetry(
                 self.get_session,
                 range(500, 600),
@@ -431,7 +435,8 @@ class GitCDN:
                     return web.Response(text=response.reason, status=response.status)
 
             # read the upload-pack input from http response
-            creds = get_url_creds_from_auth(auth)
+            creds = get_url_creds_from_auth(auth) if auth else None
+            print(creds)
 
             # start a streaming the response to the client
             response = web.StreamResponse(
