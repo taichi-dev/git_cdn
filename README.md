@@ -1,5 +1,7 @@
 # git-cdn
 
+Forked from https://gitlab.com/grouperenault/git_cdn
+
 a CDN for git
 
 [![pipeline status](https://gitlab.com/grouperenault/git_cdn/badges/master/pipeline.svg)](https://gitlab.com/grouperenault/git_cdn/commits/master)
